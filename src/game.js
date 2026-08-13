@@ -255,7 +255,11 @@ export class Game {
   }
 
   get diff() {
-    return DIFFICULTIES[this.diffIndex];
+    // `diffOverride` lets a tool hold its own mutable copy of a stage. Writing
+    // to DIFFICULTIES directly would leak into every other run in the tab,
+    // including the daily — the architect lab must not be able to change the
+    // real game out from under it.
+    return this.diffOverride || DIFFICULTIES[this.diffIndex];
   }
 
   isUnlocked(d) {
@@ -1205,7 +1209,15 @@ export class Game {
         }
       }
     }
-    const pattern = this.drawPattern(bag);
+    // A queued pattern is played once and cleared: the architect picks the next
+    // wall, the spawner still decides where it can fairly go.
+    let pattern;
+    if (this.queued) {
+      pattern = this.queued;
+      this.queued = null;
+    } else {
+      pattern = this.drawPattern(bag);
+    }
     const mirror = rng.chance(0.5);
     const rings = toRings(
       pattern.gen(n).map((w) => ({

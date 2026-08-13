@@ -56,7 +56,9 @@ let menuBoxes = null;
 const logo = new Image();
 let logoReady = false;
 logo.onload = () => { logoReady = true; };
-logo.src = 'assets/wordmark.png';
+// Absolute: the renderer is also loaded from /architect/, where a relative
+// path resolves to a directory that has no assets in it.
+logo.src = '/assets/wordmark.png';
 
 // Recolouring the mark per stage means hue-rotating a bitmap, which is far too
 // costly to do every frame — so it is baked once per hue bucket and reused.

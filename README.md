@@ -341,6 +341,33 @@ Lowering it is safe: the fairness canary holds 210/210 at every value down to
 which is exactly why tuning it changes how the game *feels* without touching
 whether it is winnable.
 
+### The Architect (`/architect/`)
+
+Play the game from the other side: you queue the next wall, an Autopilot tries to
+live, and every knob that decides whether it can is a slider beside the arena.
+The two halves are the same thing — the adversary in this game *is* its
+difficulty.
+
+The opponent is the real Autopilot with one addition: **reaction time**. At 0ms
+it is the fairness canary and cannot be killed, which is the guarantee rather
+than a bug; the lab says so on the slider. Every millisecond after that is the
+difficulty the geometry knobs could never reach.
+
+Two things it deliberately does not do. Queuing a pattern does not bypass the
+spawner — it still places the wall where the fairness rule allows, so the
+architect chooses the *problem*, not an impossible one. And the lab holds a
+private copy of the stage (`game.diffOverride`); writing to `DIFFICULTIES` would
+change the real game in the same tab, daily included.
+
+The opponent's latency is not a clean skill dial: a pure reactive delay makes it
+oscillate, so 180ms can die faster than 250ms. It is an opponent to beat, not a
+calibrated measure of human skill — for that, use `tools/latency.mjs` and treat
+the numbers as a floor.
+
+`/architect/*` had to join the `no-store` rule in the Caddyfile. Without it the
+zone's 4-hour Browser Cache TTL applies, and there is no purge-capable token on
+the NAS — hence the `?v=` on the script tag.
+
 ### Difficulty is a named profile, not a dozen constants
 
 Two days of "is it harder yet?" changed knobs one at a time across `game.js` and
