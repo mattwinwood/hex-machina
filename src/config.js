@@ -41,7 +41,12 @@ export const RING_SPIN_FRACTION = 0.3;
 // half-slot-count game wearing a polygon: every ring's openings must be
 // point-symmetric. Only possible when the side count is even.
 export const twinHalf = (sides) => sides / 2;
-export const twinPossible = (sides) => sides % 2 === 0;
+// Twin mirrors every opening to the slot opposite it, so a one-gap pattern
+// becomes two gaps out of `sides`. On a square that is 50% of the ring standing
+// open — a corridor, not a challenge. 6 sides gives 33% and 8 gives 25%, which
+// is where the second cursor actually costs something. Even-sided is necessary
+// but not sufficient.
+export const twinPossible = (sides) => sides % 2 === 0 && sides >= 6;
 
 // --- Slow motion -----------------------------------------------------------
 // Bullet time is earned, not issued. You start empty and bank one charge every
@@ -167,6 +172,12 @@ export const REST_MAX = 2.3;
 // they are least wanted, at the start, and no amount of tuning the multiple
 // fixes that because the multiple is not the thing being felt.
 export const REST_MAX_SECONDS = 1.5;
+// Where a `ghost` wall stops being drawn, as a fraction of the spawn radius. It
+// is still lethal below this — the player has already been shown it and now has
+// to remember. Too low and it vanishes after the dodge is already made, which
+// changes nothing; too high and it disappears before there was time to read it,
+// which is luck rather than difficulty.
+export const GHOST_HIDE_AT = 0.34;
 
 // --- Pulse mode ------------------------------------------------------------
 // The arena breathes with the track. Obstacles are untouched; what changes is
@@ -269,9 +280,15 @@ export const DIFFICULTIES = [
     factor: 1.0,
     startProgress: 0,
     baseTier: 0,
-    // Stage one is the on-ramp: wide dodging windows that erode slowly, no
-    // tier-3 patterns, rotation held back, and a calmer camera. The target is a
-    // player clearing 60s inside a hundred attempts, not inside a thousand.
+    // Stage one is the on-ramp: wide dodging windows that erode slowly, rotation
+    // held back, and a calmer camera. The target is a player clearing 60s inside
+    // a hundred attempts, not inside a thousand.
+    //
+    // It used to cap at tier 2, which sounded like a gentle on-ramp and was in
+    // fact a dead library: this is the stage the daily runs, so `zigzag`,
+    // `longspiral`, `stutter` and `blackout` never appeared for anybody, ever.
+    // Tier 3 unlocks at the 45s phase, so they arrive in the last quarter of a
+    // run as an escalation rather than an opening. Fairness holds at 210/210.
     safety: 1.95,
     safetyFloor: 1.45,
     // 0.15 meant the dodging window went 1.95 -> 1.80 over a whole run: a 7.7%
@@ -283,7 +300,7 @@ export const DIFFICULTIES = [
     // 1.30 -> 3.14 deaths/min from the first window to the last, against
     // 1.29 -> 1.90 (flat) before. Fairness holds at 210/210.
     safetyDecay: 0.50,
-    maxTier: 2,
+    maxTier: 3,
     spinScale: 0.7,
     ringSpinChance: 0.28,
     ringSpinFrom: 12,

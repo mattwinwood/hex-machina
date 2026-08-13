@@ -1224,6 +1224,7 @@ export class Game {
         slot: mirror ? mod(n - 1 - w.slot, n) : mod(w.slot, n),
         dist: w.dist,
         len: w.len,
+        ghost: w.ghost,
       })),
       n,
     );
@@ -1255,7 +1256,7 @@ export class Game {
       const r = live[i];
       cursor = this.onBeat(cursor);
       for (const w of r.walls) {
-        this.walls.push({ slot: w.slot, dist: cursor, len: w.len, phase: 0, spin, grazed: false, cleared: false, pattern: pattern.name });
+        this.walls.push({ slot: w.slot, dist: cursor, len: w.len, phase: 0, spin, grazed: false, cleared: false, pattern: pattern.name, ghost: w.ghost });
       }
       const here = this.arrivalAngles(r.gaps, cursor, spin);
       cursor += r.len;

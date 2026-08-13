@@ -5,7 +5,7 @@
 import {
   TAU, CORE_RADIUS, PLAYER_ORBIT, PLAYER_SIZE, WORLD_HEIGHT,
   MAX_CHARGES, SECONDS_PER_CHARGE, DIFFICULTIES, CREDIT, CREDIT_SEP,
-  CHECKPOINTS, RANKS, BADGES, ASSIST_MIN, PORTRAIT_FRAMING, mod, lerp, clamp,
+  CHECKPOINTS, RANKS, BADGES, ASSIST_MIN, PORTRAIT_FRAMING, GHOST_HIDE_AT, mod, lerp, clamp,
 } from './config.js';
 import {
   roundRectPath, chamferPath, hexPath, withGlow, panel, toggle, ICONS,
@@ -352,6 +352,21 @@ function drawBackground(ctx, pal, viewR, sides, step) {
   }
 }
 
+/**
+ * How visible a wall is. Normal walls are 1; `ghost` walls fade to nothing over
+ * the last stretch of their approach, having already been shown once. They stay
+ * lethal — this is the only place their ghostliness exists, which is why the
+ * fairness canary cannot see the mechanic at all.
+ */
+function wallAlpha(g, w, d) {
+  if (!w.ghost) return 1;
+  const hide = g.spawnDist * GHOST_HIDE_AT;
+  const fade = hide * 0.55;              // a short dissolve, not a hard cut
+  if (d <= hide - fade) return 0;
+  if (d >= hide) return 1;
+  return (d - (hide - fade)) / fade;
+}
+
 function drawWalls(ctx, g, pal, slide, viewR) {
   ctx.fillStyle = pal.fg;
 
@@ -382,9 +397,13 @@ function drawWalls(ctx, g, pal, slide, viewR) {
     let r1 = d + wl.len;
     if (r1 <= r0) continue;
     if (r1 > viewR) r1 = viewR; // clip enormous off-screen polygons
+    const a = wallAlpha(g, wl, d);
+    if (a <= 0) continue;
+    ctx.globalAlpha = a;
     wallPath(ctx, wl.slot, wl.phase, r0, r1, g.step);
     ctx.fill();
   }
+  ctx.globalAlpha = 1;
 
   ctx.fillStyle = pal.fg;
   for (let i = 0; i < walls.length; i++) {
@@ -394,12 +413,18 @@ function drawWalls(ctx, g, pal, slide, viewR) {
     const r0 = d > CORE_RADIUS ? d : CORE_RADIUS;
     const r1 = Math.min(d + wl.len, viewR);
     if (r1 <= r0) continue;
+    const ga = wallAlpha(g, wl, d);
+    if (ga <= 0) continue;
+    ctx.globalAlpha = ga;
     // The lit face: a fixed slice of the leading edge, never the whole wall, so
     // a 200-unit tunnel wall still reads as one edge rather than a slab.
     const lip = Math.min(r1, r0 + Math.min(WALL_EDGE, (r1 - r0) * 0.55));
     wallPath(ctx, wl.slot, wl.phase, r0, lip, g.step);
     ctx.fill();
   }
+  // A ghost wall leaves the alpha part-way down; everything drawn after this —
+  // the core, the cursor, the whole HUD — would inherit it.
+  ctx.globalAlpha = 1;
 }
 
 /**

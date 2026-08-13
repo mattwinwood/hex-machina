@@ -563,6 +563,42 @@ player does not blunder; a bot with pure reactive delay oscillates and dies in
 nine seconds, while Matt clears seventy-nine. Humans anticipate. Use the bot for
 fairness, which it measures exactly, and use a real player for feel.
 
+### Twin needs a big arena to mean anything
+
+Twin mirrors every opening to the slot opposite it, so a one-gap pattern becomes
+two gaps out of `sides`. On a **square that is 50% of the ring standing open** —
+a corridor, not a challenge. Six sides gives 33% and eight gives 25%, which is
+where the second cursor starts costing something. `twinPossible` is now
+`sides % 2 === 0 && sides >= 6`: even-sided was necessary but never sufficient.
+
+### Walls that vanish, and why the canary cannot see them
+
+`blackout` shows a wall on the way in and stops drawing it for the last stretch.
+It stays lethal throughout — only the *drawing* changes, in `wallAlpha`. The
+player gets a full look while there is still time to plan, then executes from
+memory, which cuts the **effective** reaction window without cutting the fair
+one.
+
+That asymmetry is the entire point. A bot reads the wall list and is completely
+unaffected, so the fairness canary is blind to this mechanic — which makes it one
+of the few levers (with pace and camera spin) that makes the game harder for a
+good human without making it unfair. `GHOST_HIDE_AT` sets where it goes: too low
+and it vanishes after the dodge was already made, too high and it disappears
+before there was time to read it, which is luck rather than difficulty.
+
+Two other new patterns: **corkscrew** walks the opening one slot the same way for
+six rings, so you commit to a direction and hold it rather than dabbing; **fork**
+opens two ways through on opposite sides and then closes one, which is a decision
+rather than a reflex — the thing a zig-zag never asks for.
+
+### The daily's stage was capping off a third of the library
+
+Spark capped at tier 2, which read as a gentle on-ramp and was in fact dead
+content: the daily runs on spark, so `zigzag`, `longspiral`, `stutter` and the
+new `blackout` never appeared for anybody. At tier 3 they unlock at the 45s
+phase — an escalation in the last quarter rather than an opening. Distinct
+patterns per run went 8.0 -> 10.5, fairness held at 210/210.
+
 ### A rest was a distance, but it is felt as time
 
 `REST_MIN`/`REST_MAX` push the spawn frontier out by a multiple of the spawn

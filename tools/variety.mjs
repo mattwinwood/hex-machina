@@ -18,6 +18,7 @@ const dir = process.env.SRC || '../src';
 const { Game } = await import(`${dir}/game.js`);
 const { Autopilot } = await import(`${dir}/autopilot.js`);
 const { DIFFICULTIES, WORLD_HEIGHT } = await import(`${dir}/config.js`);
+const { PATTERNS } = await import(`${dir}/patterns.js`);
 const TUNE = process.env.TUNE || 'classic';
 const { rng, dailySeed, modesForSeed } = await import(`${dir}/rng.js`);
 
@@ -77,7 +78,7 @@ const avg = (k) => (totals[k] / n).toFixed(1);
 console.log(`what a 60-second run poses — ${n} consecutive daily seeds, perfect bot\n`);
 console.log(`distinct arena shapes seen   ${avg('shapes')}  (of 5 possible)`);
 console.log(`shape changes per run        ${avg('changes')}`);
-console.log(`distinct patterns per run    ${avg('patterns')}  (of 18)`);
+console.log(`distinct patterns per run    ${avg('patterns')}  (of ${PATTERNS.length})`);
 console.log(`seconds with twin live       ${avg('twinSec')}s of 60`);
 console.log(`seconds with ANY mode live   ${avg('modeSec')}s of 60`);
 console.log(`seconds with TWO+ at once    ${avg('overlap')}s of 60   <- compound challenge`);

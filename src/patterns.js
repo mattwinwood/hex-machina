@@ -32,6 +32,21 @@ function ring(n, dist, gaps, len = T) {
   return out;
 }
 
+/**
+ * A wall that is shown on the way in and then hidden for the last stretch.
+ *
+ * It stays lethal the whole time — only the drawing changes. The player gets a
+ * full look while there is still time to plan, then has to execute from memory,
+ * which cuts the *effective* reaction window without cutting the fair one. That
+ * asymmetry is the point: a bot reads the wall list and is unaffected, so the
+ * fairness canary is blind to this, and it is exactly the kind of difficulty a
+ * good human player actually feels.
+ */
+function ghost(walls) {
+  for (const w of walls) w.ghost = 1;
+  return walls;
+}
+
 export const PATTERNS = [
   {
     name: 'single',
@@ -258,6 +273,64 @@ export const PATTERNS = [
         g += d * (k % 3 === 1 ? 2 : 1);
       }
       return out;
+    },
+  },
+  {
+    // Spin your way out: the opening steps one slot the same way, ring after
+    // ring, for long enough that you cannot dab at it — you commit to a
+    // direction and hold it. The existing spirals move the gap too, but they
+    // reverse or accelerate; this one never lets up.
+    name: 'corkscrew',
+    spinnable: false,
+    tier: 2,
+    minSides: 5,
+    gen: (n) => {
+      const dir = rng.sign();
+      let g = rng.int(n);
+      const out = [];
+      for (let i = 0; i < 6; i++) {
+        out.push(...ring(n, i * 132, [g]));
+        g = mod(g + dir, n);
+      }
+      return out;
+    },
+  },
+  {
+    // Shown, then hidden. Three rings arrive with the opening walking one slot
+    // at a time; you see the whole shape early and dodge the back half blind.
+    name: 'blackout',
+    spinnable: false,
+    tier: 3,
+    gen: (n) => {
+      const dir = rng.sign();
+      let g = rng.int(n);
+      const out = [];
+      for (let i = 0; i < 3; i++) {
+        const r = ring(n, i * 165, [g]);
+        out.push(...(i === 0 ? r : ghost(r)));
+        g = mod(g + dir, n);
+      }
+      return out;
+    },
+  },
+  {
+    // A fork that closes. The first ring offers two ways through on opposite
+    // sides; the second keeps only one of them. Committing early to the wrong
+    // one means crossing the arena late, so it is a decision rather than a
+    // reflex — which is the thing a zig-zag never asks for.
+    name: 'fork',
+    spinnable: false,
+    tier: 2,
+    minSides: 5,
+    gen: (n) => {
+      const a2 = rng.int(n);
+      const b2 = mod(a2 + Math.floor(n / 2), n);
+      const keep = rng.chance(0.5) ? a2 : b2;
+      return [
+        ...ring(n, 0, [a2, b2]),
+        ...ring(n, 210, [keep]),
+        ...ring(n, 380, [mod(keep + rng.sign(), n)]),
+      ];
     },
   },
   {
