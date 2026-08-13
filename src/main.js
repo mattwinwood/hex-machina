@@ -617,9 +617,14 @@ if (document.fonts?.load) {
 // Retries do not reload, and reloading keeps the query string, so stickiness
 // bought nothing and cost clarity.
 try {
-  const q = new URLSearchParams(location.search).get('pace');
+  const params = new URLSearchParams(location.search);
+  const q = params.get('pace');
   if (q !== null) game.pace = Number(q);
-} catch { /* no query string: ships at the default pace */ }
+  // Difficulty profile: ?tuning=gauntlet plays the 08-12/08-13 build, ?tuning=
+  // classic plays it as it was on 08-11. See src/tuning.js.
+  const t = params.get('tuning');
+  if (t) game.tune = t;
+} catch { /* no query string: ships at the default profile and pace */ }
 
 refreshBoard(true);
 requestAnimationFrame(frame);

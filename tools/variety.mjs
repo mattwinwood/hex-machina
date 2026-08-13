@@ -18,6 +18,7 @@ const dir = process.env.SRC || '../src';
 const { Game } = await import(`${dir}/game.js`);
 const { Autopilot } = await import(`${dir}/autopilot.js`);
 const { DIFFICULTIES, WORLD_HEIGHT } = await import(`${dir}/config.js`);
+const TUNE = process.env.TUNE || 'classic';
 const { rng, dailySeed, modesForSeed } = await import(`${dir}/rng.js`);
 
 const GRID = 0.6, VISIBLE = WORLD_HEIGHT / 2;
@@ -34,6 +35,7 @@ for (let d = 0; d < DAYS; d++) {
   g.daily = true;
   Object.defineProperty(g, 'runDate', { value: date, configurable: true });
   g.setView(390, 844, 620);
+  g.tune = TUNE;
   const m = modesForSeed(dailySeed(date));
   rng.scramble = () => rng.seed(dailySeed(date));
   const ap = new Autopilot(g);

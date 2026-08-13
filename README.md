@@ -341,6 +341,38 @@ Lowering it is safe: the fairness canary holds 210/210 at every value down to
 which is exactly why tuning it changes how the game *feels* without touching
 whether it is winnable.
 
+### Difficulty is a named profile, not a dozen constants
+
+Two days of "is it harder yet?" changed knobs one at a time across `game.js` and
+`config.js`. When the answer came back as "put it the way it was", there was
+nothing to put it back to: the repo's history starts *after* most of those
+changes, so there was no commit to revert to. That is the real cost of starting
+version control late, and the fix is not to be more careful — it is to make
+difficulty one switchable thing.
+
+`src/tuning.js` holds named profiles. `classic` is the game as it played on
+2026-08-11; `gauntlet` is everything built on 08-12 and 08-13. `classic` is the
+default. Switch with `?tuning=gauntlet`, and anything non-default is unranked and
+labelled in the HUD, so a modified run can never be mistaken for the real one.
+
+| | classic | gauntlet |
+| --- | --- | --- |
+| rescue trigger | 0.9 | 0.6 |
+| safety decay | 0.15 | 0.50 |
+| shuffled pattern bag | off | on |
+| day character weighting | off | on |
+| puzzle gauntlet | off | on |
+| *arena shapes per run* | *2.6* | *4.9* |
+| *shape changes per run* | *2.2* | *11.1* |
+| *fairness* | *210/210* | *210/210* |
+
+The harnesses take `TUNE=` so either profile can be measured, and both must
+certify 210/210 — a profile is allowed to be easier or harder, never unfair.
+
+**Bug fixes are deliberately not profiled.** The post-reshape clearance, the
+twin/even-sided guard and the charge ring following the core's inradius apply to
+both. A profile should never be able to select a bug.
+
 ### A run is a gauntlet of puzzles, not one demand repeated
 
 Difficulty was treated as a scalar for far too long — faster walls, tighter gaps,

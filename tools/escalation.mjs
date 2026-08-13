@@ -21,6 +21,7 @@ const dir = process.env.SRC || '../src';
 const { Game } = await import(`${dir}/game.js`);
 const { Autopilot } = await import(`${dir}/autopilot.js`);
 const { DIFFICULTIES, WORLD_HEIGHT, PHASES } = await import(`${dir}/config.js`);
+const TUNE = process.env.TUNE || 'classic';
 const { rng } = await import(`${dir}/rng.js`);
 
 const GRID = 0.6, VISIBLE = WORLD_HEIGHT / 2;
@@ -36,6 +37,7 @@ while (elapsed < EXPOSURE) {
   const g = new Game({ quantize: (a) => Math.ceil((clock + a) / GRID - 1e-9) * GRID - clock });
   g.unlocked = new Set(DIFFICULTIES.map((x) => x.unlockedBy).filter(Boolean));
   g.diffIndex = 0; g.daily = false; g.setView(390, 844, 620);
+  g.tune = TUNE;
   rng.scramble = () => rng.seed(seed * 7919);
   seed++;
   const ap = new Autopilot(g);

@@ -689,6 +689,9 @@ function drawHud(ctx, g, view, pal) {
     if (g.practice) {
       text(ctx, `PRACTICE FROM ${g.practiceFrom}s  ·  NO RECORD`, w / 2, padT + t9.space.xxl,
         t9.type.footnote, pal.text, 'center', t9.emphasis.secondary);
+    } else if (g.tune && g.tune.label !== 'CLASSIC') {
+      text(ctx, `${g.tune.label}${g.pace !== 1 ? `  ·  PACE ${g.pace.toFixed(2)}×` : ''}  ·  NOT RANKED`,
+        w / 2, padT + t9.space.xxl, t9.type.footnote, pal.accent, 'center', t9.emphasis.primary);
     } else if (g.pace !== 1) {
       // Never leave a non-standard pace unlabelled — a fast run that looked
       // normal would be indistinguishable from the real game.

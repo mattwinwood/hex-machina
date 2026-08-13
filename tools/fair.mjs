@@ -27,6 +27,7 @@ export async function run(diffIndex, { seed, twin, pulse, shift, forceSides }, l
   g.diffIndex = diffIndex;
   g.daily = false;
   g.setView(1280, 720, 760);
+  g.tune = process.env.TUNE || 'classic';
   const ap = new Autopilot(g);
   g.twinSeed = twin; g.twinAt = twin ? 15 : null; g.twinFor = 12;
   g.pulseMode = pulse; g.shiftMode = shift;

@@ -17,6 +17,7 @@ import {
 } from './config.js';
 import { poolFor } from './patterns.js';
 import { rng, dailySeed, dailyKey, modesForSeed, trackForDate, flavourForSeed, dateForOffset } from './rng.js';
+import { tuningFor, DEFAULT_TUNING } from './tuning.js';
 
 const FIXED_DT = 1 / 240;
 const COLLIDE_PAD = 1.5;
@@ -293,8 +294,17 @@ export class Game {
     return this.diff.playerSpeed * this.pace;
   }
 
+  /** The active difficulty profile. Set once at load; see src/tuning.js. */
+  get tune() {
+    return this._tune || (this._tune = tuningFor(DEFAULT_TUNING));
+  }
+
+  set tune(name) {
+    this._tune = tuningFor(name);
+  }
+
   get safety() {
-    return Math.max(this.diff.safetyFloor, this.diff.safety - (this.diff.safetyDecay ?? SAFETY_DECAY) * this.progress);
+    return Math.max(this.diff.safetyFloor, this.diff.safety - (this.tune.safetyDecay ?? this.diff.safetyDecay ?? SAFETY_DECAY) * this.progress);
   }
 
   get phase() {
@@ -383,9 +393,10 @@ export class Game {
   }
 
   get assisted() {
-    // A non-standard pace is a different game, so it is unranked for the same
-    // reason the speed assist is: the board only compares like with like.
-    return this.assist !== 100 || this.pace !== 1;
+    // A non-standard pace or profile is a different game, so it is unranked for
+    // the same reason the speed assist is: the board only compares like with
+    // like.
+    return this.assist !== 100 || this.pace !== 1 || this.tune.label !== 'CLASSIC';
   }
 
   setName(name) {
@@ -554,7 +565,8 @@ export class Game {
     this.rescueCount = 0;
     this.lastHit = null;
     this.puzzleMod = 'none';
-    this.buildPuzzles();
+    if (this.tune.puzzles) this.buildPuzzles();
+    else this.puzzles = null;
 
     this.state = 'play';
     this.loading = false;
@@ -975,7 +987,7 @@ export class Game {
     if (this.autoSlow > 0 || this.rescueCooldown > 0 || this.charges <= 0) return;
 
     const odds = this.escapeOdds();
-    if (odds >= RESCUE_AT) return;
+    if (odds >= this.tune.rescueAt) return;
 
     // Bullet time multiplies the angle you can cover before the wall lands by
     // 1 / SLOWMO_SCALE. Under about that, even this cannot save it — the charge
@@ -1077,7 +1089,7 @@ export class Game {
 
   /** Advance the gauntlet once a puzzle has had its time and the board is clear. */
   stepPuzzles(dt) {
-    if (!this.puzzles || this.demo || this.tutorial) return;
+    if (!this.tune.puzzles || !this.puzzles || this.demo || this.tutorial) return;
     this.puzzleT += dt;
     if (this.puzzleIndex < 0) return this.nextPuzzle();
     // Twin as a per-puzzle modifier is NOT enabled: driving it from the gauntlet
@@ -1132,6 +1144,10 @@ export class Game {
    * swing. The bag is keyed to the pool so a tier or shape change starts fresh.
    */
   drawPattern(bag) {
+    // Independent draws are what the game did before the bag existed. Kept so a
+    // profile can select it, not because it is better — it clusters, which is
+    // what made whole days unaccountably soft.
+    if (!this.tune.shuffledBag) return rng.pick(bag);
     const key = `${bag.length}:${bag[0] && bag[0].name}:${this.sides}`;
     if (!this._bag || this._bagKey !== key || !this._bag.length) {
       this._bagKey = key;
@@ -1180,7 +1196,7 @@ export class Game {
         for (const p of want) for (let k = 0; k < 3; k++) bag.push(p);
       }
     }
-    if (bag === pool) {
+    if (bag === pool && this.tune.flavourWeighting) {
       const f = this.flavour;
       if (f.favour.length) {
         bag = pool.slice();
