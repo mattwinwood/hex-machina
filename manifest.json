@@ -1,0 +1,16 @@
+{
+  "name": "Daily Hex",
+  "short_name": "Daily Hex",
+  "description": "Dodge the closing walls. Survive 60 seconds. A new seeded run every day.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0b0410",
+  "theme_color": "#0b0410",
+  "categories": ["games"],
+  "icons": [
+    { "src": "/assets/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/assets/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/assets/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

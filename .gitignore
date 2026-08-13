@@ -1,0 +1,8 @@
+node_modules/
+
+# macOS. The AppleDouble files in particular travel over scp/tar and have to be
+# swept off the NAS after every deploy.
+.DS_Store
+._*
+
+*.log
