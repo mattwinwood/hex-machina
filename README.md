@@ -401,6 +401,48 @@ The bag is reset in `start()`: a half-consumed bag carried into a retry would
 make a second attempt at the daily differ from the first, which breaks the one
 promise the daily makes.
 
+### The difficulty curve was flat, and minClearFor is why
+
+`minClearFor` is `travel * (speed / effective) * safety + 12`. The spacing is
+**divided by the wall speed** — which means when walls speed up, they are spawned
+proportionally further apart and the player's reaction time stays constant *by
+construction*. Everything the phase table appears to ramp is cancelled:
+
+| phase lever | what it actually does |
+| --- | --- |
+| wall speed +34% | divided straight back out by `minClearFor` |
+| `spin` 1.0 → 2.4 | drives `cam.rot` only — harder to *read*, mechanically nothing |
+| `zoom` 1.24 → 1.36 | marginal loss of lookahead |
+| `tier` 0 → 3 | harder patterns need more travel, so they get *more* clearance |
+
+That left `safety` as the only real escalation, and it was decaying at 0.15 —
+1.95 to 1.80 over a full run, a 7.7% tightening that never approached its own
+1.45 floor. Measured per 15-second window, the game did not get harder after the
+first phase: 1.29 / 1.94 / 2.42 / **1.90** deaths per minute, with the window
+called EVERYTHING IT HAS *easier* than the one before it.
+
+At `safetyDecay: 0.50` the window travels the full 1.95 → 1.45 and the curve
+appears: **1.34 / 2.10 / 2.40 / 2.50 / 3.06**, monotonic, fairness still 210/210.
+
+### Idle time is bounded by the fairness invariant
+
+More than half of a run has nothing on the approach — 72% of the first fifteen
+seconds. That is not an oversight, it is the fairness guarantee made visible:
+the spawner must leave a greedy bot room to always make it, and that room is
+empty screen. Every lever was measured against it:
+
+- **fewer rests** (0.45 → 0.20): canary drops to 208/210, and it front-loads
+  difficulty, flattening the curve
+- **shorter rests** (max 2.3 → 1.2): 209/210
+- **rests fading out over the run**: 209/210 at any strength worth having
+- **lower base safety** (1.95 → 1.60): idle unmoved at 71%
+- **faster cursor** (5.0 → 8.0): idle unmoved; rests are measured in `spawnDist`
+  units and are immune to every speed lever
+
+Late-run idle falls out of the escalation fix on its own (56% → 51%). Cutting the
+early figure further means relaxing the invariant that a greedy bot always
+survives — a design decision about what the game *is*, not a tuning knob.
+
 ### Why the stage table resists tuning
 
 Three separate attempts to re-tune the six stages produced nothing trustworthy.

@@ -242,7 +242,15 @@ export const DIFFICULTIES = [
     // player clearing 60s inside a hundred attempts, not inside a thousand.
     safety: 1.95,
     safetyFloor: 1.45,
-    safetyDecay: 0.15,
+    // 0.15 meant the dodging window went 1.95 -> 1.80 over a whole run: a 7.7%
+    // tightening that never came near its own floor, and the entire real
+    // escalation in the game. Everything else that "ramps" is cancelled out —
+    // walls speed up 34%, but minClearFor divides the spacing by wall speed, so
+    // reaction time stays constant by construction. At 0.50 the window actually
+    // travels 1.95 -> 1.45 across the run and the curve appears: measured
+    // 1.30 -> 3.14 deaths/min from the first window to the last, against
+    // 1.29 -> 1.90 (flat) before. Fairness holds at 210/210.
+    safetyDecay: 0.50,
     maxTier: 2,
     spinScale: 0.7,
     ringSpinChance: 0.28,
