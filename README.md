@@ -4,6 +4,21 @@ A browser take on *Super Hexagon*. Dodge closing walls by orbiting a hexagonal
 core. Survive 60 seconds. No build step, no dependencies — open `index.html`
 and play.
 
+## Credits and provenance
+
+Recorded here because it is the question that decides whether this repo can ever
+be public, and it should never have to be asked again.
+
+- **Music** — the five tracks in `audio/` are Matt Winwood's own recordings.
+  Original work, not licensed library music, so there is nothing restricting
+  redistribution of the files themselves.
+- **Type** — Archivo Black, SIL Open Font License, self-hosted in `assets/`
+  with its licence alongside it in `archivo-black-OFL.txt`.
+- **Art** — the wordmark and icons are original.
+- **Concept** — *Super Hexagon* by Terry Cavanagh, credited on the title screen.
+  Mechanics only; none of its code, art, audio or vocabulary is used, and the
+  stage and phase ladders were deliberately renamed off it.
+
 ## Play
 
 ```bash
