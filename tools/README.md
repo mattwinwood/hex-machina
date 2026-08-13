@@ -15,6 +15,31 @@ node hazard.mjs      # deaths per minute, by stage and sloppiness
 node rhythm.mjs      # pacing: how much of the time the field is empty
 ```
 
+## The test suite
+
+```bash
+node test.mjs            # 26 invariants; exits non-zero on failure
+node test.mjs twin rest  # only tests whose names contain these words
+```
+
+Written because too much here has been *presumed* working. The list of things
+that were silently dead or lying, every one found by accident rather than by a
+test: the SKIP button was drawn, hit-boxed and never wired to anything; the
+tutorial was undismissable on touch; `blackout` could never spawn because the
+daily's stage capped a tier below it; twin turned a square into a corridor; the
+menu advertised a day character the pool was not biased toward; a rest was
+measured in distance and lasted four seconds.
+
+So each test drives the real simulation and asserts on what it *observes*, never
+on what the code appears to say. "This function exists" is not a test.
+
+A warning from writing it: the first run had four failures and **all four were
+bugs in the tests**, not the game — a badge award that lived in `main.js` where
+the scan did not look, walls spawned in the same tick as a reshape counted as
+survivors, rests conflated with reshape drains, and pattern *draws* counted as
+walls. A failing test is a hypothesis, not a verdict. Confirm which side is
+wrong before changing either.
+
 ## The one that must not move
 
 `main.mjs` is the **fairness canary**. Patterns describe shape; the spawner

@@ -10,7 +10,7 @@ import {
   PROGRESS_SECONDS, SPEED_GAIN, SAFETY_DECAY, PHASES,
   GRAZE_WINDOW, GRAZE_DECAY, GRAZE_COST_MIN, GRAZE_COST_MAX, PULSE_AMPLITUDE, PULSE_ZOOM,
   HUE_SHIMMER, HUE_SHIMMER_PERIOD,
-  REST_CHANCE, REST_MIN, REST_MAX, REST_MAX_SECONDS,
+  REST_CHANCE, REST_MIN, REST_MAX, REST_MAX_SECONDS, GRAZE_MAX_CHAIN,
   CHECKPOINTS, ASSIST_STEP, ASSIST_MIN, BADGES,
   RANKS, DIFFICULTIES, TRACKS, FLAVOURS, mod, angDiff, clamp,
 } from './config.js';
@@ -1220,7 +1220,7 @@ export class Game {
       }
       if (closest >= 0 && closest < GRAZE_WINDOW) {
         w.grazed = true;
-        g.chain = Math.min(99, g.chain + 1);
+        g.chain = Math.min(GRAZE_MAX_CHAIN, g.chain + 1);
         g.best = Math.max(g.best, g.chain);
         g.total++;
         g.timer = GRAZE_DECAY;

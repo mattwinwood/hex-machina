@@ -16,10 +16,9 @@ export function geometryFor(sides) {
   return { sides, step, halfStep: step / 2, cosHalf: Math.cos(step / 2) };
 }
 
-export const GEOM = geometryFor(DEFAULT_SIDES);
-// Kept for the handful of call sites that only ever mean "the default arena".
-export const SIDES = DEFAULT_SIDES;
-export const STEP = GEOM.step;
+// No module-level STEP: the arena reshapes mid-run, so every consumer already
+// reads geometry per side count via `geometryFor`. A default-hexagon constant
+// was left over from before shapes changed and was read by nobody.
 
 export const CORE_RADIUS = 42; // the hexagon you defend
 export const PLAYER_ORBIT = 62; // cursor distance from centre
@@ -28,7 +27,6 @@ export const WORLD_HEIGHT = 640; // world units across the short screen axis
 
 // Shown at the foot of the title screen. Kept here so the byline is one edit,
 // not a string buried in the renderer.
-export const GAME_NAME = 'DAILY HEX';
 // Split on CREDIT_SEP when it will not fit on one line — keep the two in step.
 export const CREDIT_SEP = '  |  ';
 export const CREDIT = `DEVELOPED BY: MATT WINWOOD${CREDIT_SEP}ORIGINAL CONCEPT BY: TERRY CAVANAGH (SUPER HEXAGON)`;
