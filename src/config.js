@@ -113,12 +113,16 @@ export const GRAZE_COST_MAX = 1.9;  // clawing out of a closing, nearly shut rin
 //
 // A lean, never a lock: every pattern stays reachable, so no day loses the
 // vocabulary it needs, and the fairness spacing rule is untouched.
+// Named for what they DO, not for a mood — the same rule the phase names follow.
+// "PATIENCE" and "WALL OF SOUND" told a player nothing they could act on; the
+// point of showing the day's character is that you know what you are walking
+// into before you press play.
 export const FLAVOURS = [
   { id: 'even', name: 'MIXED', favour: [], weight: 1 },
-  { id: 'spirals', name: 'SPIRAL DAY', favour: ['spiral', 'escape-spiral', 'whiplash-spiral', 'longspiral'], weight: 4 },
-  { id: 'holds', name: 'PATIENCE', favour: ['hold', 'stutter', 'stutter-step', 'tunnel'], weight: 4 },
-  { id: 'swings', name: 'SWINGS', favour: ['zigzag', 'cross', 'pinwheel', 'rain'], weight: 4 },
-  { id: 'walls', name: 'WALL OF SOUND', favour: ['bat', 'ladder', 'opposite', 'double'], weight: 4 },
+  { id: 'spirals', name: 'MOSTLY SPIRALS', favour: ['spiral', 'escape-spiral', 'whiplash-spiral', 'longspiral'], weight: 4 },
+  { id: 'holds', name: 'HOLD AND WAIT', favour: ['hold', 'stutter', 'stutter-step', 'tunnel'], weight: 4 },
+  { id: 'swings', name: 'SIDE TO SIDE', favour: ['zigzag', 'cross', 'pinwheel', 'rain'], weight: 4 },
+  { id: 'walls', name: 'DENSE WALLS', favour: ['bat', 'ladder', 'opposite', 'double'], weight: 4 },
 ];
 
 // --- Rests -----------------------------------------------------------------

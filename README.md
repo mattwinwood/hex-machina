@@ -318,6 +318,29 @@ server's `TOP_N`; getting it wrong only ever costs a redundant prompt, never a
 lost score. Declining is remembered per day, so it is one prompt rather than one
 per death.
 
+### The auto-rescue was playing most of the game
+
+Bullet time fires when the odds of reaching the next gap fall below `RESCUE_AT`.
+That was 0.9 — which fires when you have a **90% chance of getting there
+unaided**, not the "little to no chance" the mechanic was specified as. Measured
+against a bot, the safety net was absorbing more than half the difficulty:
+
+| trigger | deaths/min | reached 60s |
+| --- | --- | --- |
+| off | 2.60 | 4% |
+| 0.90 (old) | 1.09 | 32% |
+| **0.60 (now)** | **1.61** | **14%** |
+
+The first real telemetry agreed: players took 2.8 rescues a minute — one every
+~22 seconds — and still died with an empty bank 100% of the time. A net that
+catches you constantly is not tension, it is the game playing itself, and it
+fires so often it stops reading as a rescue at all.
+
+Lowering it is safe: the fairness canary holds 210/210 at every value down to
+0.4, because a greedy bot never needs the net. It exists only for imperfect play,
+which is exactly why tuning it changes how the game *feels* without touching
+whether it is winnable.
+
 ### Each day has a character
 
 A day used to differ from another only by which mode bits it rolled, which is a

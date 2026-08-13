@@ -39,7 +39,14 @@ const BEAT_SNAP_MAX = 0.98;
 // Slightly under 1.0 rather than exactly at it: at 1.0 the estimate fires on
 // moments a competent player still recovers from, and spending the bank early
 // leaves it empty for the crisis that follows. Measured, 0.9 rescued more runs.
-const RESCUE_AT = 0.9;
+// Fire only when the next gap is genuinely slipping away. At 0.9 this rescued
+// players from situations they had a 90% chance of escaping unaided — it fired
+// every ~22 seconds, absorbed more than half the game's difficulty (2.60 -> 1.09
+// deaths/min with it on) and took the 60-second finish rate from 4% to 32%.
+// "Little to no chance" was always the spec; 0.9 was not that.
+// The fairness canary holds 210/210 at every value down to 0.4, because a
+// greedy bot never needs the net at all — it exists only for imperfect play.
+const RESCUE_AT = 0.6;
 const RESCUE_COOLDOWN = 0.35; // one bad ring must not drain the whole bank
 // How much of a gap's half-width counts as "inside" rather than "at the centre".
 const RESCUE_MARGIN = 0.75;

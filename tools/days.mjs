@@ -62,7 +62,9 @@ function dayHazard(date, every) {
 }
 
 const days = +(process.env.DAYS || 8);
-const today = new Date('2026-08-12T12:00:00Z');
+// Real today unless overridden, or this silently measures the wrong week
+// forever: it was pinned to a hardcoded date and went stale within a day.
+const today = process.env.TODAY ? new Date(`${process.env.TODAY}T12:00:00Z`) : new Date();
 console.log(`daily difficulty by date — ${EXPOSURE}s exposure per day, frequent-slip bot`);
 console.log('(± is one Poisson standard error on the death count)\n');
 console.log('date         seed        character        twin      deaths/min');
