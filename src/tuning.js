@@ -30,6 +30,12 @@ export const TUNING = {
     // How fast the dodging window tightens across a run. 0.15 moves it 1.95 ->
     // 1.80 over 60s and never reaches the 1.45 floor.
     safetyDecay: 0.15,
+    // How often the spawner inserts breathing room. Rests are load-bearing —
+    // the spawner uses them to buy the clearance a greedy bot needs — so the
+    // safe floor depends on how much margin the profile already leaves.
+    // Classic's wide margin holds 210/210 down to 0.10; this is a deliberate
+    // cut from the original 0.45, which left 73% of the opening empty.
+    restChance: 0.2,
     // Patterns drawn independently each spawn, and no day character.
     shuffledBag: false,
     flavourWeighting: false,
@@ -42,6 +48,9 @@ export const TUNING = {
     note: 'Everything built on 08-12 and 08-13.',
     rescueAt: 0.6,
     safetyDecay: 0.5,
+    // Stays at 0.45: with the margin decaying to 1.45 this profile has nothing
+    // spare, and 0.20 costs it a canary run (209/210).
+    restChance: 0.45,
     shuffledBag: true,
     flavourWeighting: true,
     puzzles: true,

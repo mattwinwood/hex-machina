@@ -1276,7 +1276,7 @@ export class Game {
 
     // Breathe. Without this the next pattern follows at the minimum fair
     // spacing every single time, and the arena never actually empties.
-    if (rng.chance(this.diff.restChance ?? REST_CHANCE)) {
+    if (rng.chance(this.tune.restChance ?? this.diff.restChance ?? REST_CHANCE)) {
       cursor += this.spawnDist * rng.range(REST_MIN, REST_MAX);
     }
     this.frontier = cursor;

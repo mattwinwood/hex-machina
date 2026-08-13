@@ -386,6 +386,7 @@ labelled in the HUD, so a modified run can never be mistaken for the real one.
 | --- | --- | --- |
 | rescue trigger | 0.9 | 0.6 |
 | safety decay | 0.15 | 0.50 |
+| rest frequency | 0.20 | 0.45 |
 | shuffled pattern bag | off | on |
 | day character weighting | off | on |
 | puzzle gauntlet | off | on |
@@ -561,6 +562,21 @@ with random wrong-way commits measures how punishing a blunder is, and a good
 player does not blunder; a bot with pure reactive delay oscillates and dies in
 nine seconds, while Matt clears seventy-nine. Humans anticipate. Use the bot for
 fairness, which it measures exactly, and use a real player for feel.
+
+### Rest frequency is per profile, because its safe floor is
+
+Rests are load-bearing rather than decoration: the spawner uses them to buy the
+clearance a greedy bot needs, so how far they can be cut depends on how much
+margin the profile already leaves. Classic (margin decaying only 1.95 -> 1.80)
+holds 210/210 all the way down to 0.10. Gauntlet (decaying to 1.45) has nothing
+spare and loses a canary run at 0.20.
+
+Shipped classic at **0.20**, down from 0.45: the opening fifteen seconds go from
+73% empty to 60%, the late run to 38-46%, and walls on the approach rise from 1.5
+to 2.1. Gauntlet stays at 0.45 because it cannot afford less.
+
+That is why the value moved out of `config.js` and into the profile — a single
+global constant was quietly unfair for one of the two settings it served.
 
 ### Idle time is bounded by the fairness invariant
 

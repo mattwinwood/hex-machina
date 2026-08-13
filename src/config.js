@@ -157,7 +157,7 @@ export const FLAVOURS = [
 // tightest legally-fair spacing, which reads as one unbroken stream rather than
 // something with a rhythm. A rest is measured in wall-flights, so it lasts the
 // same wall-clock time regardless of stage speed.
-export const REST_CHANCE = 0.45;
+export const REST_CHANCE = 0.45; // fallback only; profiles override it
 export const REST_MIN = 0.75;
 export const REST_MAX = 2.3;
 
