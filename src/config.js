@@ -117,6 +117,31 @@ export const GRAZE_COST_MAX = 1.9;  // clawing out of a closing, nearly shut rin
 // "PATIENCE" and "WALL OF SOUND" told a player nothing they could act on; the
 // point of showing the day's character is that you know what you are walking
 // into before you press play.
+/**
+ * A run is a sequence of *puzzles*, not one demand repeated.
+ *
+ * Measured before this existed, a 60-second run saw 2.6 of 5 arena shapes, 8.3
+ * of 18 patterns, 2.1 shape changes — 10% of runs never changed shape at all —
+ * and asked for two mechanics at once for 3.2 seconds out of 60. Ninety-five
+ * percent of a run posed exactly one problem at a time, which is why making it
+ * faster never made it harder: the same easy question arrived sooner.
+ *
+ * A puzzle is a triple: arena shape x pattern family x modifier. No triple
+ * repeats within a run, so variety is structural rather than luck.
+ */
+export const PUZZLE_FAMILIES = [
+  { id: 'spirals', patterns: ['spiral', 'escape-spiral', 'whiplash-spiral', 'longspiral'] },
+  { id: 'holds', patterns: ['hold', 'stutter', 'stutter-step', 'tunnel'] },
+  { id: 'swings', patterns: ['zigzag', 'cross', 'pinwheel', 'rain'] },
+  { id: 'walls', patterns: ['bat', 'ladder', 'opposite', 'double'] },
+  { id: 'open', patterns: ['single', 'wide'] },
+];
+// Modifiers ride *on top of* a pattern rather than taking their own turn, which
+// is the whole point: compound demand was the missing 95%.
+export const PUZZLE_MODS = ['none', 'spin', 'spin', 'twin', 'pulse'];
+export const PUZZLE_COUNT = 10;      // puzzles in a 60s run — one roughly every 6s
+export const PUZZLE_MIN = 4.5;       // seconds a puzzle gets before the next is armed
+
 export const FLAVOURS = [
   { id: 'even', name: 'MIXED', favour: [], weight: 1 },
   { id: 'spirals', name: 'MOSTLY SPIRALS', favour: ['spiral', 'escape-spiral', 'whiplash-spiral', 'longspiral'], weight: 4 },

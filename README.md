@@ -341,6 +341,47 @@ Lowering it is safe: the fairness canary holds 210/210 at every value down to
 which is exactly why tuning it changes how the game *feels* without touching
 whether it is winnable.
 
+### A run is a gauntlet of puzzles, not one demand repeated
+
+Difficulty was treated as a scalar for far too long — faster walls, tighter gaps,
+a stingier rescue — and every attempt failed. Profiling what a run actually
+*posed* showed why:
+
+| what a 60s run poses | before | after |
+| --- | --- | --- |
+| distinct arena shapes | 2.6 of 5 | **4.9** |
+| shape changes | 2.1 (10% of runs: none) | **11.1** |
+| distinct patterns | 8.3 of 18 | 8.1 |
+| two+ mechanics at once | 3.2s of 60 | **5.5s** |
+
+Ninety-five percent of a run asked for exactly one thing at a time. Making that
+one thing arrive sooner was never going to make it harder.
+
+A run is now `PUZZLE_COUNT` segments, each a distinct triple of *arena shape x
+pattern family x modifier*, drawn from the seeded stream so everyone walks the
+same gauntlet in the same order. No triple repeats within a run. Shape shifts and
+modifiers move to segment boundaries rather than phase boundaries, which is what
+makes them frequent enough to matter. The family is **weighted, not locked** —
+locking gave the run its shape but dropped distinct patterns to 5.9.
+
+Two fairness bugs surfaced, both invisible at two shape changes a run and fatal
+at eleven:
+
+- **Twin needs an even-sided arena.** `requestShift` had always guarded this;
+  setting `shiftPending` directly from the scheduler walked past it. A triangle
+  with a second cursor is not a hard puzzle, it is an unsurvivable one. This was
+  the whole 162/210 regression — every failing run was a twin run, at identical
+  times across different seeds.
+- **A reshape set `frontier = -Infinity`**, so in `max(spawnDist, frontier +
+  clear)` the clearance term was discarded and the first ring after every reshape
+  ignored the fairness calculation. Now anchored to the cursor's own radius.
+
+**Not shipped: twin as a per-puzzle modifier.** It measured better on every axis
+(twin live 10.8s, compound 6.4s) and cost five canary runs — `openTwin` mirrors
+the field onto opposite slots, and doing that while the scheduler is already
+reshaping produces states a greedy bot cannot escape. It needs to wait for a
+genuinely drained board.
+
 ### Each day has a character
 
 A day used to differ from another only by which mode bits it rolled, which is a

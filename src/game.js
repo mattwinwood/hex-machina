@@ -4,6 +4,7 @@
 
 import {
   TAU, DEFAULT_SIDES, SHIFT_SHAPES, geometryFor, twinHalf, twinPossible,
+  PUZZLE_FAMILIES, PUZZLE_MODS, PUZZLE_COUNT, PUZZLE_MIN,
   CORE_RADIUS, PLAYER_ORBIT, WORLD_HEIGHT, RING_SPIN_FRACTION,
   CHARGE_SECONDS, MAX_CHARGES, SECONDS_PER_CHARGE, STAMINA_MAX,
   SLOWMO_SCALE, SLOWMO_AGILITY, GRAZE_SLOWMO,
@@ -552,6 +553,8 @@ export class Game {
     this._lastPattern = null;
     this.rescueCount = 0;
     this.lastHit = null;
+    this.puzzleMod = 'none';
+    this.buildPuzzles();
 
     this.state = 'play';
     this.loading = false;
@@ -672,6 +675,9 @@ export class Game {
       this.movePlayer(dt, dir);
       this.moveWalls(dt);
       this.maybeTwin(dt);
+      // Before maybeShift, so a shape change armed by the gauntlet is applied on
+      // the same tick rather than waiting a frame.
+      this.stepPuzzles(dt);
       this.maybeShift(dt);
       this.maybeSpawn();
       this.maybeRescue(dt);
@@ -804,7 +810,14 @@ export class Game {
     this.morphFrom = from;
     this.morph = 0;
     this.lastExit = null;
-    this.frontier = -Infinity;
+    // Not -Infinity. The spawner places the next ring at
+    // `max(spawnDist, frontier + clear)`, so an infinitely negative frontier
+    // discards the clearance term entirely and the first ring after a reshape
+    // lands at spawnDist no matter how far the cursor has to travel to meet it.
+    // Anchoring to the cursor's own radius makes that first ring obey the same
+    // guarantee as every other one. Invisible at two reshapes a run; at seven it
+    // cost 48 of 210 canary runs.
+    this.frontier = this.orbit;
     this.retireWalls();
     this.player.angle = mod(this.player.angle, TAU);
     this.cam.flash = 0.7;
@@ -983,6 +996,101 @@ export class Game {
     this.hooks.onTwin?.(false);
   }
 
+/**
+   * Lay out the run's puzzles up front, from the seeded stream, so everyone
+   * playing that day walks the same gauntlet in the same order.
+   *
+   * Shapes and families each walk their own shuffled cycle rather than being
+   * drawn independently: independent draws repeat and clump, which is exactly
+   * the sameness this replaces. The day's character still tilts which families
+   * come up first, so a HOLD AND WAIT day still feels like one — it just stops
+   * being the *only* thing that happens.
+   */
+  buildPuzzles() {
+    const shuffled = (arr) => {
+      const out = arr.slice();
+      for (let i = out.length - 1; i > 0; i--) {
+        const j = Math.floor(rng.float() * (i + 1));
+        const t = out[i]; out[i] = out[j]; out[j] = t;
+      }
+      return out;
+    };
+    // Favoured families lead, so the day still reads as its character.
+    const fav = this.flavour.favour;
+    const fams = shuffled(PUZZLE_FAMILIES);
+    fams.sort((a, b) => {
+      const av = a.patterns.some((n) => fav.includes(n)) ? 0 : 1;
+      const bv = b.patterns.some((n) => fav.includes(n)) ? 0 : 1;
+      return av - bv;
+    });
+    let shapes = shuffled(SHIFT_SHAPES);
+    const out = [];
+    const used = new Set();
+    let prevShape = this.sides;
+    for (let i = 0; i < PUZZLE_COUNT; i++) {
+      if (!shapes.length) shapes = shuffled(SHIFT_SHAPES);
+      // Never the shape we are already on, or the change would be invisible.
+      let k = shapes.findIndex((n) => n !== prevShape);
+      if (k < 0) k = 0;
+      const sides = shapes.splice(k, 1)[0];
+      const fam = fams[i % fams.length];
+      let mod = PUZZLE_MODS[Math.floor(rng.float() * PUZZLE_MODS.length)];
+      // Twin needs an even arena; asking for it on a triangle would silently
+      // drop the modifier and quietly make that puzzle a duplicate.
+      if (mod === 'twin' && !twinPossible(sides)) mod = 'spin';
+      let key = `${sides}:${fam.id}:${mod}`;
+      if (used.has(key)) { mod = mod === 'none' ? 'spin' : 'none'; key = `${sides}:${fam.id}:${mod}`; }
+      used.add(key);
+      out.push({ sides, family: fam, mod });
+      prevShape = sides;
+    }
+    this.puzzles = out;
+    this.puzzleIndex = -1;
+    this.puzzleT = 0;
+  }
+
+  /** Move to the next puzzle: reshape the arena and swap the demand. */
+  nextPuzzle() {
+    if (!this.puzzles || !this.puzzles.length) return;
+    this.puzzleIndex = (this.puzzleIndex + 1) % this.puzzles.length;
+    this.puzzleT = 0;
+    const p = this.puzzles[this.puzzleIndex];
+    this.puzzleMod = p.mod;
+    // Twin becomes a property of the puzzle, not only of a seeded window. The
+    // schedule is drawn from the same seeded stream, so "everyone meets the
+    // second cursor at the same second" still holds — it is just the gauntlet
+    // fixing that second rather than a separate roll.
+    this.wantTwin = p.mod === 'twin';
+    // Twin mirrors every opening to the slot opposite it, which is only possible
+    // on an even-sided arena — requestShift has always guarded this, and setting
+    // shiftPending directly walked straight past it. A triangle with a second
+    // cursor is not a hard puzzle, it is an unsurvivable one.
+    let want = p.sides;
+    if (this.twin && !twinPossible(want)) {
+      want = SHIFT_SHAPES.find((n) => twinPossible(n) && n !== this.sides) ?? this.sides;
+    }
+    if (want !== this.sides) {
+      this.shiftPending = want;
+      this.shiftTimer = 0;
+    }
+  }
+
+  /** Advance the gauntlet once a puzzle has had its time and the board is clear. */
+  stepPuzzles(dt) {
+    if (!this.puzzles || this.demo || this.tutorial) return;
+    this.puzzleT += dt;
+    if (this.puzzleIndex < 0) return this.nextPuzzle();
+    // Twin as a per-puzzle modifier is NOT enabled: driving it from the gauntlet
+    // measured better on every variety axis (twin live 9.3s -> 10.8s, compound
+    // demand 4.7s -> 6.4s) and cost five canary runs. openTwin mirrors the field
+    // onto opposite slots, and doing that on a board the scheduler is already
+    // reshaping produces states the greedy bot cannot escape. It needs to wait
+    // for a genuinely drained board, which is a bigger change than this one.
+    if (this.puzzleT < PUZZLE_MIN) return;
+    if (this.shiftPending || this.twinPending) return; // a change is already in flight
+    this.nextPuzzle();
+  }
+
   requestShift(always = false) {
     // Collapsing the arena to a smaller polygon is a base mechanic, not a mode:
     // every run sometimes drops to a square or a triangle. Shift Mode only means
@@ -1055,12 +1163,30 @@ export class Game {
     if (!pool.length) return;
     // Lean the day toward its character by entering its favoured patterns into
     // the draw more than once. A lean, not a lock: everything stays reachable.
-    const f = this.flavour;
+    // The current puzzle owns the pool. Falling back to the day's flavour keeps
+    // the old behaviour if a family has nothing available at this tier and side
+    // count — better a plain draw than an empty one.
+    const puz = this.puzzles && this.puzzleIndex >= 0 ? this.puzzles[this.puzzleIndex] : null;
     let bag = pool;
-    if (f.favour.length) {
-      bag = pool.slice();
-      for (const p of pool) {
-        if (f.favour.includes(p.name)) for (let k = 1; k < f.weight; k++) bag.push(p);
+    if (puz) {
+      // Lean, not lock. Hard-locking a segment to one family gave the run its
+      // shape but cost the wall-to-wall variance that was the point: distinct
+      // patterns per run fell from 8.3 to 5.9. Weighting keeps the segment
+      // recognisably a spiral stretch or a hold stretch while still letting
+      // something else cut in.
+      const want = pool.filter((p) => puz.family.patterns.includes(p.name));
+      if (want.length) {
+        bag = pool.slice();
+        for (const p of want) for (let k = 0; k < 3; k++) bag.push(p);
+      }
+    }
+    if (bag === pool) {
+      const f = this.flavour;
+      if (f.favour.length) {
+        bag = pool.slice();
+        for (const p of pool) {
+          if (f.favour.includes(p.name)) for (let k = 1; k < f.weight; k++) bag.push(p);
+        }
       }
     }
     const pattern = this.drawPattern(bag);
@@ -1090,7 +1216,10 @@ export class Game {
     let cursor = Math.max(this.spawnDist, this.frontier + 24);
     for (let i = 0; i < 3; i++) {
       const angles = this.arrivalAngles(live[0].gaps, cursor, spin);
-      const clear = this.minClearFor(angularTravel(this.lastExit?.angles, angles, this.step), entrySpin);
+      const travel = this.lastExit?.angles
+        ? angularTravel(this.lastExit.angles, angles, this.step)
+        : worstApproach(angles);
+      const clear = this.minClearFor(travel, entrySpin);
       cursor = Math.max(this.spawnDist, this.frontier + clear);
     }
 
@@ -1150,6 +1279,13 @@ export class Game {
 
   rollSpin(pattern) {
     if (!pattern.spinnable) return 0;
+    // A spin puzzle rotates every ring it can, rather than leaving it to a 45%
+    // roll — the modifier is the puzzle, so it has to actually be present. Same
+    // cap as the normal path, so the spawner's clearance maths is unchanged.
+    if (this.puzzleMod === 'spin') {
+      const cap = this.playerSpeed * RING_SPIN_FRACTION;
+      return rng.sign() * rng.range(cap * 0.6, cap);
+    }
     const warmedUp = this.diff.baseTier >= 2 || this.t > (this.diff.ringSpinFrom ?? 6);
     if (!warmedUp || !rng.chance(this.diff.ringSpinChance ?? 0.45)) return 0;
     const cap = this.playerSpeed * RING_SPIN_FRACTION;
@@ -1504,6 +1640,27 @@ function symmetrize(rings, n) {
 }
 
 /** Worst-case angle from any opening in `from` to some opening in `to`. */
+/**
+ * The furthest any player angle can be from the nearest opening.
+ *
+ * With no previous exit to measure from — the first ring of a run, or the first
+ * after the arena reshapes — the cursor may be anywhere, so the worst case is
+ * the middle of the widest arc between two gaps. `angularTravel` fell back to a
+ * single slot width, which quietly assumed the player was already nearly in
+ * position: survivable at two shape changes a run, and not at seven.
+ */
+function worstApproach(angles) {
+  if (!angles || !angles.length) return Math.PI;
+  const sorted = angles.map((a) => mod(a, TAU)).sort((x, y) => x - y);
+  let widest = 0;
+  for (let i = 0; i < sorted.length; i++) {
+    let arc = sorted[(i + 1) % sorted.length] - sorted[i];
+    if (arc <= 0) arc += TAU;
+    if (arc > widest) widest = arc;
+  }
+  return widest / 2;
+}
+
 function angularTravel(from, to, step) {
   if (!from || !from.length || !to || !to.length) return step;
   let worst = 0;
