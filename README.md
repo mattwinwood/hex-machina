@@ -341,6 +341,34 @@ Lowering it is safe: the fairness canary holds 210/210 at every value down to
 which is exactly why tuning it changes how the game *feels* without touching
 whether it is winnable.
 
+### One structure
+
+Difficulty briefly lived in named profiles (`classic` / `gauntlet`), invented for
+one reason: there was no way to go back to how the game had played two days
+earlier, because the repo's history started after most of the changes. Git now
+does that job properly, so the profile layer was pure tax — and it charged twice,
+each time a change had to be checked against a configuration nobody played. Rest
+frequency had to become per-profile purely because a dormant setting could not
+survive the value the live one wanted.
+
+So it is folded back to one set of constants: the values that shipped and that
+Matt says feel right. `src/tuning.js` is deleted, along with the `?tuning=`
+switch, the HUD profile label, the puzzle scheduler and the shuffled-pattern bag
+— all of which only the retired profile reached. Deleting rather than
+commenting-out is now the honest move: the history holds them.
+
+Two things worth knowing about what came back with the fold:
+
+- **The day-character badge was lying.** The menu renders `HOLD AND WAIT`, but
+  `flavourWeighting` was off under the shipped profile, so the pool was not
+  actually leaning that way. Weighting is now unconditional and the label is
+  true: ~48% of spawns from the favoured family, all 21 patterns still reachable
+  on every character, fairness 210/210.
+- **The shuffled bag did not come back.** It cut the day-to-day difficulty spread
+  from 6.3x to 3.5x, which is a real property for a *daily*, but it is not part
+  of what plays well right now. It is one commit away if the spread ever matters
+  more than the current feel.
+
 ### The Architect (`/architect/`)
 
 Play the game from the other side: you queue the next wall, an Autopilot tries to
@@ -367,80 +395,6 @@ the numbers as a floor.
 `/architect/*` had to join the `no-store` rule in the Caddyfile. Without it the
 zone's 4-hour Browser Cache TTL applies, and there is no purge-capable token on
 the NAS — hence the `?v=` on the script tag.
-
-### Difficulty is a named profile, not a dozen constants
-
-Two days of "is it harder yet?" changed knobs one at a time across `game.js` and
-`config.js`. When the answer came back as "put it the way it was", there was
-nothing to put it back to: the repo's history starts *after* most of those
-changes, so there was no commit to revert to. That is the real cost of starting
-version control late, and the fix is not to be more careful — it is to make
-difficulty one switchable thing.
-
-`src/tuning.js` holds named profiles. `classic` is the game as it played on
-2026-08-11; `gauntlet` is everything built on 08-12 and 08-13. `classic` is the
-default. Switch with `?tuning=gauntlet`, and anything non-default is unranked and
-labelled in the HUD, so a modified run can never be mistaken for the real one.
-
-| | classic | gauntlet |
-| --- | --- | --- |
-| rescue trigger | 0.9 | 0.6 |
-| safety decay | 0.15 | 0.50 |
-| rest frequency | 0.20 | 0.45 |
-| shuffled pattern bag | off | on |
-| day character weighting | off | on |
-| puzzle gauntlet | off | on |
-| *arena shapes per run* | *2.6* | *4.9* |
-| *shape changes per run* | *2.2* | *11.1* |
-| *fairness* | *210/210* | *210/210* |
-
-The harnesses take `TUNE=` so either profile can be measured, and both must
-certify 210/210 — a profile is allowed to be easier or harder, never unfair.
-
-**Bug fixes are deliberately not profiled.** The post-reshape clearance, the
-twin/even-sided guard and the charge ring following the core's inradius apply to
-both. A profile should never be able to select a bug.
-
-### A run is a gauntlet of puzzles, not one demand repeated
-
-Difficulty was treated as a scalar for far too long — faster walls, tighter gaps,
-a stingier rescue — and every attempt failed. Profiling what a run actually
-*posed* showed why:
-
-| what a 60s run poses | before | after |
-| --- | --- | --- |
-| distinct arena shapes | 2.6 of 5 | **4.9** |
-| shape changes | 2.1 (10% of runs: none) | **11.1** |
-| distinct patterns | 8.3 of 18 | 8.1 |
-| two+ mechanics at once | 3.2s of 60 | **5.5s** |
-
-Ninety-five percent of a run asked for exactly one thing at a time. Making that
-one thing arrive sooner was never going to make it harder.
-
-A run is now `PUZZLE_COUNT` segments, each a distinct triple of *arena shape x
-pattern family x modifier*, drawn from the seeded stream so everyone walks the
-same gauntlet in the same order. No triple repeats within a run. Shape shifts and
-modifiers move to segment boundaries rather than phase boundaries, which is what
-makes them frequent enough to matter. The family is **weighted, not locked** —
-locking gave the run its shape but dropped distinct patterns to 5.9.
-
-Two fairness bugs surfaced, both invisible at two shape changes a run and fatal
-at eleven:
-
-- **Twin needs an even-sided arena.** `requestShift` had always guarded this;
-  setting `shiftPending` directly from the scheduler walked past it. A triangle
-  with a second cursor is not a hard puzzle, it is an unsurvivable one. This was
-  the whole 162/210 regression — every failing run was a twin run, at identical
-  times across different seeds.
-- **A reshape set `frontier = -Infinity`**, so in `max(spawnDist, frontier +
-  clear)` the clearance term was discarded and the first ring after every reshape
-  ignored the fairness calculation. Now anchored to the cursor's own radius.
-
-**Not shipped: twin as a per-puzzle modifier.** It measured better on every axis
-(twin live 10.8s, compound 6.4s) and cost five canary runs — `openTwin` mirrors
-the field onto opposite slots, and doing that while the scheduler is already
-reshaping produces states a greedy bot cannot escape. It needs to wait for a
-genuinely drained board.
 
 ### Each day has a character
 
@@ -620,21 +574,6 @@ tail that reads as the game having stopped. At 1.5s:
 
 Both profiles stay 210/210, so this is not profiled — it corrects a units
 mismatch rather than expressing a taste.
-
-### Rest frequency is per profile, because its safe floor is
-
-Rests are load-bearing rather than decoration: the spawner uses them to buy the
-clearance a greedy bot needs, so how far they can be cut depends on how much
-margin the profile already leaves. Classic (margin decaying only 1.95 -> 1.80)
-holds 210/210 all the way down to 0.10. Gauntlet (decaying to 1.45) has nothing
-spare and loses a canary run at 0.20.
-
-Shipped classic at **0.20**, down from 0.45: the opening fifteen seconds go from
-73% empty to 60%, the late run to 38-46%, and walls on the approach rise from 1.5
-to 2.1. Gauntlet stays at 0.45 because it cannot afford less.
-
-That is why the value moved out of `config.js` and into the profile — a single
-global constant was quietly unfair for one of the two settings it served.
 
 ### Idle time is bounded by the fairness invariant
 

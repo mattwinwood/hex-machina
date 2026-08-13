@@ -8,6 +8,8 @@ globalThis.window = { addEventListener() {} };
 const { Game } = await import('../src/game.js');
 const { Autopilot } = await import('../src/autopilot.js');
 const { DIFFICULTIES } = await import('../src/config.js');
+const { rng } = await import('../src/rng.js');
+const REAL_PICK = rng.pick;
 
 const date = new Date('2026-08-13T12:00:00Z');
 function sequence() {
@@ -18,11 +20,15 @@ function sequence() {
   Object.defineProperty(g, 'runDate', { value: date, configurable: true });
   g.setView(1280, 720, 760);
   const seen = [];
-  const real = g.drawPattern.bind(g);
-  g.drawPattern = (bag) => { const v = real(bag); seen.push(v.name); return v; };
+  // Patterns come straight from rng.pick now that the shuffled bag is gone.
+  // Restore it afterwards: wrapping a wrapper on the second call double-counts
+  // and makes two identical runs look different, which is a harness bug that
+  // reads exactly like a determinism regression.
+  rng.pick = (arr) => { const v = REAL_PICK(arr); if (v && typeof v.gen === 'function') seen.push(v.name); return v; };
   const ap = new Autopilot(g);
   g.start();
   while (g.state === 'play' && g.t < 60) { clock += 1 / 120; g.update(1 / 120, ap.steer()); }
+  rng.pick = REAL_PICK;
   return seen;
 }
 const a = sequence(), b = sequence(), c = sequence();

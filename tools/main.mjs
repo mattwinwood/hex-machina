@@ -1,6 +1,4 @@
 const { run, DIFFICULTIES, SHIFT_SHAPES } = await import('./fair.mjs');
-// TUNE=gauntlet measures the other profile; see src/tuning.js.
-const TUNE = process.env.TUNE || 'classic';
 let fails = 0, runs = 0;
 const modeSets = [
   { twin: false, pulse: false, shift: false, label: 'base' },

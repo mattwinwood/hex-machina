@@ -4,7 +4,6 @@
 
 import {
   TAU, DEFAULT_SIDES, SHIFT_SHAPES, geometryFor, twinHalf, twinPossible,
-  PUZZLE_FAMILIES, PUZZLE_MODS, PUZZLE_COUNT, PUZZLE_MIN,
   CORE_RADIUS, PLAYER_ORBIT, WORLD_HEIGHT, RING_SPIN_FRACTION,
   CHARGE_SECONDS, MAX_CHARGES, SECONDS_PER_CHARGE, STAMINA_MAX,
   SLOWMO_SCALE, SLOWMO_AGILITY, GRAZE_SLOWMO,
@@ -17,7 +16,6 @@ import {
 } from './config.js';
 import { poolFor } from './patterns.js';
 import { rng, dailySeed, dailyKey, modesForSeed, trackForDate, flavourForSeed, dateForOffset } from './rng.js';
-import { tuningFor, DEFAULT_TUNING } from './tuning.js';
 
 const FIXED_DT = 1 / 240;
 const COLLIDE_PAD = 1.5;
@@ -298,17 +296,8 @@ export class Game {
     return this.diff.playerSpeed * this.pace;
   }
 
-  /** The active difficulty profile. Set once at load; see src/tuning.js. */
-  get tune() {
-    return this._tune || (this._tune = tuningFor(DEFAULT_TUNING));
-  }
-
-  set tune(name) {
-    this._tune = tuningFor(name);
-  }
-
   get safety() {
-    return Math.max(this.diff.safetyFloor, this.diff.safety - (this.tune.safetyDecay ?? this.diff.safetyDecay ?? SAFETY_DECAY) * this.progress);
+    return Math.max(this.diff.safetyFloor, this.diff.safety - (this.diff.safetyDecay ?? SAFETY_DECAY) * this.progress);
   }
 
   get phase() {
@@ -400,7 +389,7 @@ export class Game {
     // A non-standard pace or profile is a different game, so it is unranked for
     // the same reason the speed assist is: the board only compares like with
     // like.
-    return this.assist !== 100 || this.pace !== 1 || this.tune.label !== 'CLASSIC';
+    return this.assist !== 100 || this.pace !== 1;
   }
 
   setName(name) {
@@ -563,14 +552,8 @@ export class Game {
     // A half-consumed bag carried into the next run would make a retry of the
     // daily differ from a first attempt at it, which breaks the one promise the
     // daily makes: the same sequence for everyone, every time.
-    this._bag = null;
-    this._bagKey = null;
-    this._lastPattern = null;
     this.rescueCount = 0;
     this.lastHit = null;
-    this.puzzleMod = 'none';
-    if (this.tune.puzzles) this.buildPuzzles();
-    else this.puzzles = null;
 
     this.state = 'play';
     this.loading = false;
@@ -691,9 +674,6 @@ export class Game {
       this.movePlayer(dt, dir);
       this.moveWalls(dt);
       this.maybeTwin(dt);
-      // Before maybeShift, so a shape change armed by the gauntlet is applied on
-      // the same tick rather than waiting a frame.
-      this.stepPuzzles(dt);
       this.maybeShift(dt);
       this.maybeSpawn();
       this.maybeRescue(dt);
@@ -991,7 +971,9 @@ export class Game {
     if (this.autoSlow > 0 || this.rescueCooldown > 0 || this.charges <= 0) return;
 
     const odds = this.escapeOdds();
-    if (odds >= this.tune.rescueAt) return;
+    // `rescueAt` is an instance override for the architect lab; the game itself
+    // never sets it.
+    if (odds >= (this.rescueAt ?? RESCUE_AT)) return;
 
     // Bullet time multiplies the angle you can cover before the wall lands by
     // 1 / SLOWMO_SCALE. Under about that, even this cannot save it — the charge
@@ -1010,101 +992,6 @@ export class Game {
     this.twinFlash = TWIN_CUE;
     this.burstCursor(this.player.angle + Math.PI);
     this.hooks.onTwin?.(false);
-  }
-
-/**
-   * Lay out the run's puzzles up front, from the seeded stream, so everyone
-   * playing that day walks the same gauntlet in the same order.
-   *
-   * Shapes and families each walk their own shuffled cycle rather than being
-   * drawn independently: independent draws repeat and clump, which is exactly
-   * the sameness this replaces. The day's character still tilts which families
-   * come up first, so a HOLD AND WAIT day still feels like one — it just stops
-   * being the *only* thing that happens.
-   */
-  buildPuzzles() {
-    const shuffled = (arr) => {
-      const out = arr.slice();
-      for (let i = out.length - 1; i > 0; i--) {
-        const j = Math.floor(rng.float() * (i + 1));
-        const t = out[i]; out[i] = out[j]; out[j] = t;
-      }
-      return out;
-    };
-    // Favoured families lead, so the day still reads as its character.
-    const fav = this.flavour.favour;
-    const fams = shuffled(PUZZLE_FAMILIES);
-    fams.sort((a, b) => {
-      const av = a.patterns.some((n) => fav.includes(n)) ? 0 : 1;
-      const bv = b.patterns.some((n) => fav.includes(n)) ? 0 : 1;
-      return av - bv;
-    });
-    let shapes = shuffled(SHIFT_SHAPES);
-    const out = [];
-    const used = new Set();
-    let prevShape = this.sides;
-    for (let i = 0; i < PUZZLE_COUNT; i++) {
-      if (!shapes.length) shapes = shuffled(SHIFT_SHAPES);
-      // Never the shape we are already on, or the change would be invisible.
-      let k = shapes.findIndex((n) => n !== prevShape);
-      if (k < 0) k = 0;
-      const sides = shapes.splice(k, 1)[0];
-      const fam = fams[i % fams.length];
-      let mod = PUZZLE_MODS[Math.floor(rng.float() * PUZZLE_MODS.length)];
-      // Twin needs an even arena; asking for it on a triangle would silently
-      // drop the modifier and quietly make that puzzle a duplicate.
-      if (mod === 'twin' && !twinPossible(sides)) mod = 'spin';
-      let key = `${sides}:${fam.id}:${mod}`;
-      if (used.has(key)) { mod = mod === 'none' ? 'spin' : 'none'; key = `${sides}:${fam.id}:${mod}`; }
-      used.add(key);
-      out.push({ sides, family: fam, mod });
-      prevShape = sides;
-    }
-    this.puzzles = out;
-    this.puzzleIndex = -1;
-    this.puzzleT = 0;
-  }
-
-  /** Move to the next puzzle: reshape the arena and swap the demand. */
-  nextPuzzle() {
-    if (!this.puzzles || !this.puzzles.length) return;
-    this.puzzleIndex = (this.puzzleIndex + 1) % this.puzzles.length;
-    this.puzzleT = 0;
-    const p = this.puzzles[this.puzzleIndex];
-    this.puzzleMod = p.mod;
-    // Twin becomes a property of the puzzle, not only of a seeded window. The
-    // schedule is drawn from the same seeded stream, so "everyone meets the
-    // second cursor at the same second" still holds — it is just the gauntlet
-    // fixing that second rather than a separate roll.
-    this.wantTwin = p.mod === 'twin';
-    // Twin mirrors every opening to the slot opposite it, which is only possible
-    // on an even-sided arena — requestShift has always guarded this, and setting
-    // shiftPending directly walked straight past it. A triangle with a second
-    // cursor is not a hard puzzle, it is an unsurvivable one.
-    let want = p.sides;
-    if (this.twin && !twinPossible(want)) {
-      want = SHIFT_SHAPES.find((n) => twinPossible(n) && n !== this.sides) ?? this.sides;
-    }
-    if (want !== this.sides) {
-      this.shiftPending = want;
-      this.shiftTimer = 0;
-    }
-  }
-
-  /** Advance the gauntlet once a puzzle has had its time and the board is clear. */
-  stepPuzzles(dt) {
-    if (!this.tune.puzzles || !this.puzzles || this.demo || this.tutorial) return;
-    this.puzzleT += dt;
-    if (this.puzzleIndex < 0) return this.nextPuzzle();
-    // Twin as a per-puzzle modifier is NOT enabled: driving it from the gauntlet
-    // measured better on every variety axis (twin live 9.3s -> 10.8s, compound
-    // demand 4.7s -> 6.4s) and cost five canary runs. openTwin mirrors the field
-    // onto opposite slots, and doing that on a board the scheduler is already
-    // reshaping produces states the greedy bot cannot escape. It needs to wait
-    // for a genuinely drained board, which is a bigger change than this one.
-    if (this.puzzleT < PUZZLE_MIN) return;
-    if (this.shiftPending || this.twinPending) return; // a change is already in flight
-    this.nextPuzzle();
   }
 
   requestShift(always = false) {
@@ -1132,47 +1019,6 @@ export class Game {
     return gaps.map((g) => (g + 0.5) * this.step + drift);
   }
 
-  /**
-   * Draw a pattern without replacement, reshuffling when the bag runs dry.
-   *
-   * Independent draws let a run cluster on whichever patterns happen to come up,
-   * and the pool is not uniform in threat: `escape-spiral` alone is ~18% of
-   * rings while accounting for ~7% of deaths. A run that drew mostly soft
-   * patterns was a soft day, and since the daily's seed fixes the sequence for
-   * everybody, that landed as a *day* being unaccountably easy — measured at
-   * roughly a sixfold spread in deaths per minute across a week.
-   *
-   * Drawing without replacement keeps the same long-run mix and the same day
-   * character (the flavour still enters its favourites more than once, so they
-   * still come up more often) while removing the clustering that produced the
-   * swing. The bag is keyed to the pool so a tier or shape change starts fresh.
-   */
-  drawPattern(bag) {
-    // Independent draws are what the game did before the bag existed. Kept so a
-    // profile can select it, not because it is better — it clusters, which is
-    // what made whole days unaccountably soft.
-    if (!this.tune.shuffledBag) return rng.pick(bag);
-    const key = `${bag.length}:${bag[0] && bag[0].name}:${this.sides}`;
-    if (!this._bag || this._bagKey !== key || !this._bag.length) {
-      this._bagKey = key;
-      // Fisher-Yates through the seeded stream, so a given seed still produces
-      // exactly one sequence for everyone playing that day.
-      const next = bag.slice();
-      for (let i = next.length - 1; i > 0; i--) {
-        const j = Math.floor(rng.float() * (i + 1));
-        const t = next[i]; next[i] = next[j]; next[j] = t;
-      }
-      // Avoid an immediate repeat across the seam between two bags.
-      if (this._lastPattern && next.length > 1 && next[0].name === this._lastPattern) {
-        const t = next[0]; next[0] = next[1]; next[1] = t;
-      }
-      this._bag = next;
-    }
-    const pattern = this._bag.pop();
-    this._lastPattern = pattern.name;
-    return pattern;
-  }
-
   maybeSpawn() {
     if (this.shiftPending || this.twinPending) return; // let the board drain first
     if (this.frontier > this.spawnDist) return;
@@ -1183,24 +1029,8 @@ export class Game {
     if (!pool.length) return;
     // Lean the day toward its character by entering its favoured patterns into
     // the draw more than once. A lean, not a lock: everything stays reachable.
-    // The current puzzle owns the pool. Falling back to the day's flavour keeps
-    // the old behaviour if a family has nothing available at this tier and side
-    // count — better a plain draw than an empty one.
-    const puz = this.puzzles && this.puzzleIndex >= 0 ? this.puzzles[this.puzzleIndex] : null;
     let bag = pool;
-    if (puz) {
-      // Lean, not lock. Hard-locking a segment to one family gave the run its
-      // shape but cost the wall-to-wall variance that was the point: distinct
-      // patterns per run fell from 8.3 to 5.9. Weighting keeps the segment
-      // recognisably a spiral stretch or a hold stretch while still letting
-      // something else cut in.
-      const want = pool.filter((p) => puz.family.patterns.includes(p.name));
-      if (want.length) {
-        bag = pool.slice();
-        for (const p of want) for (let k = 0; k < 3; k++) bag.push(p);
-      }
-    }
-    if (bag === pool && this.tune.flavourWeighting) {
+    if (bag === pool) {
       const f = this.flavour;
       if (f.favour.length) {
         bag = pool.slice();
@@ -1216,7 +1046,7 @@ export class Game {
       pattern = this.queued;
       this.queued = null;
     } else {
-      pattern = this.drawPattern(bag);
+      pattern = rng.pick(bag);
     }
     const mirror = rng.chance(0.5);
     const rings = toRings(
@@ -1277,7 +1107,7 @@ export class Game {
 
     // Breathe. Without this the next pattern follows at the minimum fair
     // spacing every single time, and the arena never actually empties.
-    if (rng.chance(this.tune.restChance ?? this.diff.restChance ?? REST_CHANCE)) {
+    if (rng.chance(this.diff.restChance ?? REST_CHANCE)) {
       // Roll the distance, then clamp it to a wall-clock ceiling. Rolling in
       // seconds directly would change the shape of the distribution; clamping
       // keeps the short rests exactly as they were and only cuts the tail that
@@ -1314,13 +1144,6 @@ export class Game {
 
   rollSpin(pattern) {
     if (!pattern.spinnable) return 0;
-    // A spin puzzle rotates every ring it can, rather than leaving it to a 45%
-    // roll — the modifier is the puzzle, so it has to actually be present. Same
-    // cap as the normal path, so the spawner's clearance maths is unchanged.
-    if (this.puzzleMod === 'spin') {
-      const cap = this.playerSpeed * RING_SPIN_FRACTION;
-      return rng.sign() * rng.range(cap * 0.6, cap);
-    }
     const warmedUp = this.diff.baseTier >= 2 || this.t > (this.diff.ringSpinFrom ?? 6);
     if (!warmedUp || !rng.chance(this.diff.ringSpinChance ?? 0.45)) return 0;
     const cap = this.playerSpeed * RING_SPIN_FRACTION;

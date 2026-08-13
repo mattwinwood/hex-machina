@@ -66,7 +66,7 @@ const KNOBS = [
   {
     id: 'rescueAt', label: 'Bullet time trigger', min: 0, max: 1, step: 0.05, value: 0.9,
     note: 'Fires when the odds of reaching the next gap fall below this. 0 disables the rescue entirely.',
-    apply: (v) => { game._tune = { ...game.tune, rescueAt: v }; },
+    apply: (v) => { game.rescueAt = v; },
   },
   {
     id: 'restChance', label: 'Rest frequency', min: 0, max: 1, step: 0.05, value: 0.45,

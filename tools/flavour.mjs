@@ -22,10 +22,10 @@ for (const f of FLAVOURS) {
     const ap = new Autopilot(g);
     // Patterns are drawn by Game.drawPattern (a shuffled bag) rather than
     // rng.pick, so count them at the draw itself.
-    const realDraw = g.drawPattern.bind(g);
-    g.drawPattern = (bag) => {
-      const v = realDraw(bag);
-      if (v && v.name) counts.set(v.name, (counts.get(v.name) || 0) + 1);
+    const realPick = rng.pick;
+    rng.pick = (bag) => {
+      const v = realPick(bag);
+      if (v && v.name && PATTERNS.includes(v)) counts.set(v.name, (counts.get(v.name) || 0) + 1);
       return v;
     };
     g.start();
