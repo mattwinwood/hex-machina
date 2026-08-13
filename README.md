@@ -449,9 +449,12 @@ lands near Matt's real telemetry (1.05 vs 1.63 deaths/min, 14% vs 17% reaching
 | 1.20 | 3.87 | 15.5s | 0% |
 | 1.40 | 6.44 | 9.3s | 0% |
 
-`?pace=1.2` on the URL, or `dailyhex.setPace(1.2)` in the console. Sticky for the
-session, labelled in the HUD, and always unranked — the board only compares like
-with like.
+`?pace=1.2` on the URL, or `dailyhex.setPace(1.2)` in the console. The URL is the
+only source of truth — an earlier version remembered it for the session, which
+meant the plain address still played at whatever had last been tried: a modified
+game wearing the default's clothes. Retries do not reload and reloading keeps the
+query string, so stickiness bought nothing. Labelled in the HUD and always
+unranked; the board only compares like with like.
 
 **Do not model the player.** Two attempts failed in opposite directions: a bot
 with random wrong-way commits measures how punishing a blunder is, and a good

@@ -609,14 +609,17 @@ if (document.fonts?.load) {
 // Live difficulty dial, for finding the right pace by feel instead of by
 // argument: dailyhexagon.com/?pace=1.2 plays 20% faster. Both speeds scale, so
 // the geometry and the fairness guarantee are untouched — only the milliseconds
-// a human gets to react. Sticky for the session so a retry keeps the setting,
-// and cleared with ?pace=1.
+// a human gets to react.
+//
+// The URL is the only source of truth. An earlier version remembered the pace
+// for the session, which meant going back to the plain address still played at
+// whatever had last been tried — a modified game wearing the default's clothes.
+// Retries do not reload, and reloading keeps the query string, so stickiness
+// bought nothing and cost clarity.
 try {
   const q = new URLSearchParams(location.search).get('pace');
-  if (q !== null) sessionStorage.setItem('dailyhex.pace', q);
-  const pace = Number(sessionStorage.getItem('dailyhex.pace') || 1);
-  if (pace && pace !== 1) game.pace = pace;
-} catch { /* no storage: ships at the default pace */ }
+  if (q !== null) game.pace = Number(q);
+} catch { /* no query string: ships at the default pace */ }
 
 refreshBoard(true);
 requestAnimationFrame(frame);
