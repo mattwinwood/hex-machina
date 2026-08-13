@@ -350,8 +350,8 @@ const input = new Input(canvas, {
         sound.uiMove(1);
         return;
       }
-      if (hit.type === 'howto') {
-        game.openOverlay('howto');
+      if (hit.type === 'howto' || hit.type === 'stats') {
+        game.openOverlay(hit.type);
         sound.uiOpen();
         return;
       }

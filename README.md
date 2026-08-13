@@ -554,6 +554,33 @@ Details that turned out to matter:
 - Skippable with ESC or the SKIP target, and the flag is written on completion so
   it never asks twice.
 
+### The title screen has no settings sheet
+
+Sound was one row inside a sheet reached through a gear, which is three taps to
+do the only thing anyone does in a hurry. The gear is now the mute button
+itself. Best times and badges moved to a second link beside HOW TO PLAY rather
+than disappearing with the sheet — twin mode belongs to the seed now and had no
+business being a toggle, and resetting best times lives in the stats sheet where
+the times it destroys are on screen.
+
+The tagline is gone in favour of greeting a returning player by the name they
+put on the board. Length is the whole problem: "GOOD AFTERNOON, CHAD
+THUNDERBUTT" is over three times the width of "HI, JAS". Rather than shrink one
+line until the longest name is unreadable, `drawWelcome` picks the longest
+phrasing that fits at full size and only shrinks when even the bare name is too
+wide. Someone who has never entered a name gets nothing — a greeting addressed
+to no one is worse than no greeting.
+
+### Add-to-home-screen instructions are per browser
+
+Getting these wrong is worse than saying nothing: the player follows them, fails
+to find the item, and concludes the game is broken. Chrome on iOS is the one
+people get stuck on — it has a Share sheet like Safari, but "Add to Home Screen"
+sits behind **View more** rather than in the first list. iPadOS is detected by
+touch points, since it reports a desktop Mac user agent.
+
+No step tells anyone to open their browser. They are reading this in it.
+
 ### Installable
 
 `manifest.json` plus the `apple-*` meta tags — iOS ignores the manifest's display

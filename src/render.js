@@ -99,6 +99,7 @@ export function menuHit(view, x, y) {
   if (hit(b.board, x, y)) return { type: 'board' };
   if (hit(b.play, x, y, 8)) return { type: 'start' };
   if (hit(b.howto, x, y, 10)) return { type: 'howto' };
+  if (b.stats && hit(b.stats, x, y, 10)) return { type: 'stats' };
   return { type: 'none' };
 }
 
@@ -126,8 +127,10 @@ export function controlRects(g, view) {
     out.push({ id: 'pause', icon: 'pause', x: left, y: top, w: size, h: size });
   }
   if (g.state === 'menu' && !g.overlay) {
-    // The title screen carries its own top bar: settings and scoreboard.
-    out.push({ id: 'settings', icon: 'gear', x: left, y: top, w: size, h: size });
+    // The title screen carries its own top bar: music and scoreboard. Sound was
+    // one row inside a settings sheet; it is the only setting anyone reaches for
+    // in a hurry, so it is now the button itself rather than a door to a sheet.
+    out.push({ id: 'mute', icon: g.muted ? 'muted' : 'sound', x: left, y: top, w: size, h: size });
     // Installing is the more valuable action for someone who does not have the
     // game on their home screen yet; stats move into settings while it is there.
     out.push(g.installed
@@ -400,9 +403,22 @@ function drawWalls(ctx, g, pal, slide, viewR) {
  * The charge meter, inside the core. Segmented rather than continuous because
  * charges are the unit you spend — a smooth bar would hide how many you hold.
  */
-function drawCharges(ctx, g, pal) {
+function drawCharges(ctx, g, pal, coreR) {
   const held = g.stamina / SECONDS_PER_CHARGE;
-  const r = g.coreRadius * 0.62;
+  // The core is a polygon, and its *inradius* — the distance to the middle of an
+  // edge, which is where it comes closest to the middle — collapses as it loses
+  // sides: cos(pi/6) = 0.87 of the circumradius for a hexagon, but cos(pi/3) =
+  // 0.50 for a triangle. A ring at a fixed fraction of the circumradius
+  // therefore sat comfortably inside a hexagon and *outside the edges* of a
+  // triangle. Anchoring to the inradius keeps the gap constant in every shape,
+  // and interpolating it through a morph exactly as morphPath does keeps it
+  // constant while the shape is changing too.
+  const inr = g.morph >= 1 || g.morphFrom === g.sides
+    ? Math.cos(Math.PI / g.sides)
+    : lerp(Math.cos(Math.PI / g.morphFrom), Math.cos(Math.PI / g.sides), g.morph);
+  // 0.716 of the inradius is what 0.62 of the circumradius used to be on a
+  // hexagon, so the shape everyone sees most is left looking exactly as it did.
+  const r = coreR * inr * 0.716;
   const step = TAU / MAX_CHARGES;
   const inset = step * 0.14;
 
@@ -473,7 +489,9 @@ function drawCore(ctx, g, pal) {
     ctx.stroke();
   });
 
-  if (g.state === 'play' || g.state === 'dead') drawCharges(ctx, g, pal);
+  // Pass the core's drawn radius, not g.coreRadius: the core breathes with the
+  // beat, and a meter that ignored the breathing had a gap that changed size.
+  if (g.state === 'play' || g.state === 'dead') drawCharges(ctx, g, pal, r);
 }
 
 function drawPlayer(ctx, g, pal) {
@@ -861,6 +879,58 @@ function drawTeach(ctx, g, view, pal, u) {
 }
 
 
+/**
+ * The route to the home screen, which is genuinely different per browser — and
+ * getting it wrong is worse than saying nothing, because the player follows the
+ * instructions, fails to find the item, and concludes the game is broken.
+ *
+ * Chrome on iOS is the one people get stuck on: it has a Share sheet like
+ * Safari, but "Add to Home Screen" is hidden behind "View more" rather than
+ * sitting in the first list.
+ *
+ * No step tells anyone to open their browser. They are reading this in it.
+ */
+function installSteps() {
+  const ua = navigator.userAgent;
+  const ios = /iphone|ipad|ipod/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+  const android = /android/i.test(ua);
+  const chromeIOS = /CriOS/.test(ua);
+  const firefoxIOS = /FxiOS/.test(ua);
+
+  if (ios && chromeIOS) {
+    return [
+      ['1', 'Tap the Share icon in the address bar.'],
+      ['2', 'Tap "View more" to open the full list.'],
+      ['3', 'Choose "Add to Home Screen", then Add.'],
+    ];
+  }
+  if (ios && firefoxIOS) {
+    return [
+      ['1', 'Tap the menu button, then Share.'],
+      ['2', 'Choose "Add to Home Screen", then Add.'],
+    ];
+  }
+  if (ios) {
+    return [
+      ['1', 'Tap the Share icon at the bottom of Safari.'],
+      ['2', 'Scroll down and choose "Add to Home Screen".'],
+      ['3', 'Tap Add. Daily Hex opens full screen, no browser bars.'],
+    ];
+  }
+  if (android) {
+    return [
+      ['1', 'Tap the ⋮ menu, top right.'],
+      ['2', 'Choose "Install app" or "Add to Home screen".'],
+      ['3', 'Confirm. Daily Hex opens in its own window.'],
+    ];
+  }
+  return [
+    ['1', 'Click the install icon in the address bar, or the ⋮ menu.'],
+    ['2', 'Choose "Install Daily Hex".'],
+    ['3', 'It opens in its own window, with no browser bars.'],
+  ];
+}
+
 /** Full-screen sheet used by settings, scores and how-to-play. */
 function drawOverlay(ctx, g, view, pal, u) {
   const { w, h } = view;
@@ -903,14 +973,7 @@ function drawOverlay(ctx, g, view, pal, u) {
   if (g.overlay === 'install') {
     // Only reached when the browser gave us no install prompt to fire — which
     // in practice means iOS, where the gesture is manual and unguessable.
-    const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
-    const steps = ios
-      ? [['1', 'Tap the Share button at the bottom of Safari.'],
-         ['2', 'Scroll down and choose "Add to Home Screen".'],
-         ['3', 'Tap Add. Daily Hex opens full screen, no browser bars.']]
-      : [['1', 'Open your browser menu.'],
-         ['2', 'Choose "Install app" or "Add to Home screen".'],
-         ['3', 'Daily Hex opens in its own window.']];
+    const steps = installSteps();
     const gutter = t9.space.xl;
     const colX = px + gutter;
     const colW = panelW - gutter;
@@ -1250,10 +1313,20 @@ function drawMenu(ctx, g, view, pal) {
   y += m.playH + grid * 1.5;
 
   // --- how to play
-  boxes.howto = { x: px + panelW / 2 - 110, y, w: 220, h: m.linkH };
+  // Two links, because the settings sheet was the only way to reach best times
+  // and badges and that sheet is gone. Split down the middle so both keep a full
+  // 44pt target.
   const linkMid = y + m.linkH / 2;
-  ICONS.info(ctx, px + panelW / 2 - 78, linkMid, fs.label * 0.55, pal.fg);
-  text(ctx, 'HOW TO PLAY', px + panelW / 2 + 12, linkMid, fs.label, pal.fg, 'center', 0.95);
+  const halfW = panelW / 2;
+  boxes.howto = { x: px, y, w: halfW, h: m.linkH };
+  boxes.stats = { x: px + halfW, y, w: halfW, h: m.linkH };
+  const leftMid = px + halfW / 2;
+  const rightMid = px + halfW + halfW / 2;
+  const linkSize = fitSize(ctx, 'HOW TO PLAY', fs.label, halfW - grid * 5);
+  ICONS.info(ctx, leftMid - ctx.measureText('HOW TO PLAY').width / 2 - grid * 1.6, linkMid, linkSize * 0.55, pal.fg);
+  text(ctx, 'HOW TO PLAY', leftMid + grid * 0.8, linkMid, linkSize, pal.fg, 'center', 0.95);
+  ICONS.chart(ctx, rightMid - ctx.measureText('BEST TIMES').width / 2 - grid * 1.6, linkMid, linkSize * 0.55, pal.fg);
+  text(ctx, 'BEST TIMES', rightMid + grid * 0.8, linkMid, linkSize, pal.fg, 'center', 0.95);
   y += m.linkH;
 
   y += grid;
@@ -1461,7 +1534,7 @@ function drawTitle(ctx, g, view, pal, m) {
     const lw = logo.naturalWidth * scale;
     const lh = logo.naturalHeight * scale;
     ctx.drawImage(mark, w / 2 - lw / 2, top, lw, lh);
-    text(ctx, 'SURVIVE 60 SECONDS', w / 2, top + lh + m.grid * 1.5, m.fs.caption, pal.text, 'center', 0.5);
+    drawWelcome(ctx, g, w, top + lh + m.grid * 1.5, pal, m);
     return;
   }
 
@@ -1472,7 +1545,42 @@ function drawTitle(ctx, g, view, pal, m) {
   withGlow(ctx, pal.fg, 16, () => {
     text(ctx, 'HEX', w / 2, top + size * 1.7, size, pal.fg, 'center', 1);
   });
-  text(ctx, 'SURVIVE 60 SECONDS', w / 2, top + size * 2.5, m.fs.caption, pal.text, 'center', 0.5);
+  drawWelcome(ctx, g, w, top + size * 2.5, pal, m);
+}
+
+/** Which half of the day it is, in the player's own clock. */
+function greetingFor(hour) {
+  if (hour < 5) return 'UP LATE';
+  if (hour < 12) return 'GOOD MORNING';
+  if (hour < 17) return 'GOOD AFTERNOON';
+  if (hour < 22) return 'GOOD EVENING';
+  return 'UP LATE';
+}
+
+/**
+ * Greet a returning player by the name they put on the board.
+ *
+ * Length is the whole problem here: "GOOD AFTERNOON, CHAD THUNDERBUTT" is over
+ * three times the width of "HI, JAS". Rather than shrink one line until the
+ * longest name is illegible, this picks the longest phrasing that actually fits
+ * at full size and only falls back to shrinking when even the bare name is too
+ * wide. Someone who has never entered a name gets nothing at all — a greeting
+ * addressed to no one is worse than no greeting.
+ */
+function drawWelcome(ctx, g, w, y, pal, m) {
+  const name = (g.playerName || '').trim();
+  if (!name) return;
+  const size = m.fs.caption;
+  const room = w * 0.86;
+  const forms = [`${greetingFor(new Date().getHours())}, ${name}`, `HI, ${name}`, name];
+  for (const form of forms) {
+    setFont(ctx, size);
+    if (ctx.measureText(form).width <= room) {
+      text(ctx, form, w / 2, y, size, pal.text, 'center', 0.55);
+      return;
+    }
+  }
+  text(ctx, name, w / 2, y, fitSize(ctx, name, size, room), pal.text, 'center', 0.55);
 }
 
 function drawPlayButton(ctx, r, g, pal, fs) {
