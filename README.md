@@ -596,6 +596,40 @@ touch points, since it reports a desktop Mac user agent.
 
 No step tells anyone to open their browser. They are reading this in it.
 
+### Anonymous telemetry
+
+Everything balanced so far was measured against a bot, and a bot is a floor
+rather than a model of a player: it cannot see the camera spin, which is a large
+part of what a human finds hard, and it never tilts, gets bored or gives up.
+`src/telemetry.js` records one row per finished run so the questions the offline
+harnesses answer can be asked of real hands — and `tools/telemetry.mjs` prints
+them on **the same axes**, so a human number sits directly beside the bot number
+used to tune it. Where the two disagree is where the bot was lying.
+
+What it is for, concretely: which patterns actually kill (the bot has
+`escape-spiral` at ~7% of deaths — if humans differ wildly, the pool is wrong),
+whether a rescue arrived in time (dying with a full bank means the trigger is too
+shy), whether a shape or a day character is disproportionately lethal, and
+whether short runs mean a hard game or a failed tutorial.
+
+**Anonymous means anonymous.** No name, though the game knows one. No account,
+cookie or persistent id — the run is not linked to any other run, let alone to a
+day. No IP is stored; the server drops it after rate limiting. No user agent,
+only "touch or keyboard" and a coarse screen class, because the same seed really
+is a different game on a phone. Nothing free-text, so nothing a player types can
+reach the file. The server keeps an **allow-list** of fields rather than a filter,
+so a client that started sending something unexpected could not quietly widen
+what is collected, and strings are length- and character-restricted on arrival.
+
+Players are told, in HOW TO PLAY, and can turn it off under BEST TIMES. A
+browser-level `globalPrivacyControl` or `doNotTrack` signal counts as off without
+being asked. Demo, tutorial and practice runs are never recorded — counting them
+would claim the autopilot's deaths as a player's.
+
+Storage is JSON lines on the same Docker volume as the scores, rotated at 64MB.
+`TELEMETRY_FILE` must point *into* the volume: defaulting it inside the image
+looks like it works and then vanishes on the next recreate.
+
 ### Installable
 
 `manifest.json` plus the `apple-*` meta tags — iOS ignores the manifest's display

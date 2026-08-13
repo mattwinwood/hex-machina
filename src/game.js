@@ -525,6 +525,8 @@ export class Game {
     this._bag = null;
     this._bagKey = null;
     this._lastPattern = null;
+    this.rescueCount = 0;
+    this.lastHit = null;
 
     this.state = 'play';
     this.loading = false;
@@ -910,7 +912,9 @@ export class Game {
    * shorter slowdown rather than nothing — which is what "based on how much
    * charge you have" comes to in practice: more banked, more chance.
    */
+  /** Rescues spent this run. Telemetry only — the mechanic does not read it. */
   buyEscape(danger) {
+    this.rescueCount = (this.rescueCount | 0) + 1;
     if (this.charges <= 0) return; // nothing banked: you are on your own
     const price = GRAZE_COST_MIN + (GRAZE_COST_MAX - GRAZE_COST_MIN) * danger;
     const paid = Math.min(price, this.charges);
@@ -1069,7 +1073,7 @@ export class Game {
       const r = live[i];
       cursor = this.onBeat(cursor);
       for (const w of r.walls) {
-        this.walls.push({ slot: w.slot, dist: cursor, len: w.len, phase: 0, spin, grazed: false, cleared: false });
+        this.walls.push({ slot: w.slot, dist: cursor, len: w.len, phase: 0, spin, grazed: false, cleared: false, pattern: pattern.name });
       }
       const here = this.arrivalAngles(r.gaps, cursor, spin);
       cursor += r.len;
@@ -1161,7 +1165,12 @@ export class Game {
       if (w.dist > this.orbit * 1.3) continue;
       const psi = angDiff(a, (w.slot + 0.5) * this.step + w.phase);
       if (Math.abs(psi) >= this.geom.halfStep) continue;
-      if (this.orbit > w.dist - COLLIDE_PAD && this.orbit < w.dist + lethalDepth(w)) return true;
+      if (this.orbit > w.dist - COLLIDE_PAD && this.orbit < w.dist + lethalDepth(w)) {
+        // Kept for telemetry: a death that cannot name its cause tells you when
+        // the game is too hard but never which part of it to change.
+        this.lastHit = w;
+        return true;
+      }
     }
     return false;
   }

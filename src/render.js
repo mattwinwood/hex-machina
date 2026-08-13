@@ -11,6 +11,7 @@ import {
   roundRectPath, chamferPath, hexPath, withGlow, panel, toggle, ICONS,
   tokens, layoutBlocks, drawBlocks, listRow,
 } from './ui.js';
+import { telemetryOn } from './telemetry.js';
 
 const FONT = '"Archivo Black", "Arial Black", "Helvetica Neue", sans-serif';
 
@@ -1023,6 +1024,20 @@ function drawOverlay(ctx, g, view, pal, u) {
         got ? t9.emphasis.secondary : 0.3);
     });
     y += Math.ceil(BADGES.length / cols) * step + t9.space.lg;
+
+    // Telemetry lives here rather than in a buried menu: this is the "your data"
+    // screen, and an opt-out nobody can find is not really an opt-out.
+    const trow = listRow(ctx, px, y, panelW, t9);
+    const tw = t9.space.xxl;
+    text(ctx, 'SHARE ANONYMOUS STATS', trow.labelX, trow.midY,
+      fitSize(ctx, 'SHARE ANONYMOUS STATS', t9.type.body, trow.room(tw + t9.space.md)),
+      pal.text, 'left', t9.emphasis.primary);
+    toggle(ctx, trow.controlX - tw, trow.midY - t9.space.lg / 2, tw, t9.space.lg, telemetryOn(), pal.fg);
+    overlayRows.push({ id: 'telemetry', x: px, y, w: panelW, h: trow.height });
+    y += trow.height + t9.space.xs;
+    text(ctx, 'No name, no account, nothing that identifies you.',
+      px + t9.space.lg, y + t9.type.caption, t9.type.caption, pal.text, 'left', t9.emphasis.tertiary);
+    y += t9.type.caption * 2 + t9.space.lg;
   }
 
   if (g.overlay === 'stats-times') {
@@ -1081,6 +1096,7 @@ function drawOverlay(ctx, g, view, pal, u) {
       ['SHAPES', 'The arena collapses to a pentagon, square or triangle, or opens to an octagon.'],
       ['SURVIVE', 'Reach 60 seconds and the stage redlines, unlocking its harder twin.'],
       ['TWIN MODE', 'On some seeds a second cursor arrives partway through, opposite the first. One input moves both, and both are lethal.'],
+      ['ANONYMOUS STATS', 'How long runs last and what ended them is sent back, with no name, no account and nothing that identifies you — it is only used to tune the game. Turn it off under BEST TIMES.'],
     ];
     const colW = panelW - t9.space.md;
     const colX = px + t9.space.sm;

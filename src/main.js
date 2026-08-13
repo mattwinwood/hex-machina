@@ -8,6 +8,7 @@ import { Input } from './input.js';
 import { Sound } from './audio.js';
 import { Autopilot } from './autopilot.js';
 import { Tutorial, tutorialNeeded } from './tutorial.js';
+import { runEnded, telemetryOn, setTelemetry } from './telemetry.js';
 import { fetchBoard, submitScore } from './leaderboard.js';
 
 const canvas = document.getElementById('game');
@@ -477,6 +478,10 @@ function applySetting(id) {
     sound.uiOpen();
   } else if (id === 'install') {
     offerInstall();
+  } else if (id === 'telemetry') {
+    const now = !telemetryOn();
+    setTelemetry(now);
+    sound.uiToggle(now);
   } else if (id === 'reset') {
     game.resetScores();
     sound.uiDeny(); // destructive: it should not sound like a reward
@@ -531,13 +536,17 @@ async function offerInstall() {
 
 // Console handle for tuning. refreshBoard/readRank are here so the leaderboard
 // nudge can be exercised without waiting on a real poll.
-window.dailyhex = { game, input, sound, autopilot, tutorial, refreshBoard, readRank };
+window.dailyhex = { game, input, sound, autopilot, tutorial, refreshBoard, readRank, telemetryOn, setTelemetry };
 
 let last = performance.now();
+let fpsAvg = 0;
 
 function frame(now) {
   const dt = Math.min((now - last) / 1000, 0.25);
   last = now;
+  // Smoothed, and only ever read by telemetry: a device that cannot hold 60fps
+  // is playing a slower game, which would otherwise read as a build regression.
+  if (dt > 0 && dt < 0.5) fpsAvg = fpsAvg ? fpsAvg * 0.98 + (1 / dt) * 0.02 : 1 / dt;
 
   const m = measure();
   if (m.w !== view.w || m.h !== view.h) resize();
@@ -559,8 +568,13 @@ function frame(now) {
   if (tutorial.active) tutorial.update(dt, input.dir);
 
   const wasSlowing = game.slowing;
+  const wasPlaying = game.state === 'play';
   game.update(dt, dir);
   if (game.slowing !== wasSlowing) sound.setRate(game.slowing ? SLOWMO_SCALE : 1);
+  // Exactly on the play -> dead edge, once per run.
+  if (wasPlaying && game.state === 'dead') {
+    runEnded(game, { input: touchMode() ? 'touch' : 'keys', fps: Math.round(fpsAvg) });
+  }
 
   game.pulse = sound.pulse(dt, game.diff.bpm);
   game.menuCoreScale = game.state === 'menu' ? menuCoreScale(view) : 1;

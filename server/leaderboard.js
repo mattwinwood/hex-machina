@@ -19,6 +19,66 @@ const NAME_MAX = 16;
 const RATE_WINDOW_MS = 60_000;
 const RATE_MAX = 12; // submissions per IP per window
 
+// --- telemetry ---------------------------------------------------------------
+// Append-only JSON lines, one object per finished run, for tuning the game. The
+// client sends nothing identifying (see src/telemetry.js); this end stores no IP
+// either — the address is used for rate limiting and then dropped, so a stored
+// record cannot be tied to a person even by whoever runs the server.
+const TELEM = process.env.TELEMETRY_FILE || path.join(__dirname, 'data', 'runs.jsonl');
+const TELEM_MAX_BYTES = 64 * 1024 * 1024; // rotate rather than fill the volume
+// An allow-list, not a filter: a field that is not named here cannot be stored,
+// so a client that starts sending something unexpected cannot quietly widen what
+// is collected.
+const TELEM_FIELDS = {
+  v: 'number', date: 'string', stage: 'string', t: 'number', finished: 'boolean',
+  phase: 'string', walls: 'number', sides: 'number', pattern: 'string',
+  depth: 'number', spin: 'number', flavour: 'string', twinSeed: 'boolean',
+  twinAt: 'boolean', charges: 'number', rescues: 'number', assist: 'number',
+  assisted: 'boolean', grazes: 'number', bestChain: 'number', practice: 'boolean',
+  input: 'string', fps: 'number', shape: 'string',
+};
+
+function cleanRun(data) {
+  if (!data || typeof data !== 'object') return null;
+  const out = {};
+  for (const [k, kind] of Object.entries(TELEM_FIELDS)) {
+    const v = data[k];
+    if (v === undefined || v === null) continue;
+    if (kind === 'number') {
+      const n = Number(v);
+      if (!Number.isFinite(n) || Math.abs(n) > 1e6) continue;
+      out[k] = Math.round(n * 100) / 100;
+    } else if (kind === 'boolean') {
+      out[k] = !!v;
+    } else if (typeof v === 'string') {
+      // Short and character-restricted: nothing a player could type can survive
+      // this, which is what keeps free text out of the file.
+      // 40, not 24: every string here is a game constant (a stage, pattern,
+      // phase or flavour name) and the longest phase name was being truncated
+      // mid-word. Still far too short and too restricted for anything a player
+      // could type to survive, which is the property that matters.
+      const str = v.slice(0, 40).replace(/[^A-Za-z0-9 ·_.:-]/g, '');
+      if (str) out[k] = str;
+    }
+  }
+  if (typeof out.t !== 'number' || out.t < 0 || out.t > MAX_TIME) return null;
+  if (!out.date || !/^\d{4}-\d{2}-\d{2}$/.test(out.date)) return null;
+  return out;
+}
+
+function appendRun(rec) {
+  try {
+    const st = fs.existsSync(TELEM) ? fs.statSync(TELEM) : null;
+    if (st && st.size > TELEM_MAX_BYTES) fs.renameSync(TELEM, `${TELEM}.1`);
+    // The server's own clock, not the client's: a timestamp a client can set is
+    // a timestamp that cannot be trusted, and this one is only ever used to
+    // bucket runs by day.
+    fs.appendFileSync(TELEM, `${JSON.stringify({ ...rec, at: Date.now() })}\n`);
+  } catch (err) {
+    console.error('telemetry append failed', err.message);
+  }
+}
+
 fs.mkdirSync(path.dirname(DATA), { recursive: true });
 
 let board = {};
@@ -77,6 +137,18 @@ function topFor(date) {
 }
 
 function send(res, code, body) {
+  // 204 means "no content" and a body makes it malformed. The pre-existing
+  // OPTIONS reply was already sending one; telemetry replies 204 constantly, so
+  // it is worth getting right rather than repeating.
+  if (code === 204) {
+    res.writeHead(204, {
+      'cache-control': 'no-store',
+      'access-control-allow-origin': '*',
+      'access-control-allow-headers': 'content-type',
+      'access-control-allow-methods': 'GET,POST,OPTIONS',
+    });
+    return res.end();
+  }
   const payload = JSON.stringify(body);
   res.writeHead(code, {
     'content-type': 'application/json; charset=utf-8',
@@ -104,6 +176,27 @@ http
       if (!isDate(date)) return send(res, 400, { error: 'bad date' });
       const rows = topFor(date);
       return send(res, 200, { date, count: (board[date] || []).length, top: rows });
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/telemetry') {
+      // Always 204, even when dropped: telemetry is never worth telling a client
+      // about, and a silent endpoint gives nothing back to poke at.
+      if (rateLimited(ip)) return send(res, 204, null);
+      let body = '';
+      let tooBig = false;
+      req.on('data', (chunk) => {
+        body += chunk;
+        if (body.length > 2048) { tooBig = true; req.destroy(); }
+      });
+      req.on('end', () => {
+        if (tooBig) return;
+        try {
+          const rec = cleanRun(JSON.parse(body));
+          if (rec) appendRun(rec);
+        } catch { /* malformed telemetry is not worth a response */ }
+        send(res, 204, null);
+      });
+      return undefined;
     }
 
     if (req.method === 'POST' && url.pathname === '/api/score') {
