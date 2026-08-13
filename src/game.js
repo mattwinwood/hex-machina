@@ -268,12 +268,28 @@ export class Game {
     return this.diff.startProgress + this.t / PROGRESS_SECONDS;
   }
 
+  /**
+   * Pace scales wall speed and cursor speed together, so the *geometry* is
+   * untouched and the fairness guarantee is unaffected — a zero-latency bot
+   * still clears every seed. What it changes is the one thing that bot cannot
+   * feel: how many milliseconds a human has to read the field and move. That is
+   * why the canary reads 210/210 at every pace, and why pace is the only lever
+   * that reliably makes the game harder for someone who is actually good at it.
+   */
+  get pace() {
+    return this._pace || 1;
+  }
+
+  set pace(v) {
+    this._pace = Math.max(0.5, Math.min(2.5, Number(v) || 1));
+  }
+
   get speed() {
-    return Math.min(this.diff.maxSpeed, this.diff.wallSpeed * (1 + SPEED_GAIN * this.progress));
+    return Math.min(this.diff.maxSpeed, this.diff.wallSpeed * (1 + SPEED_GAIN * this.progress)) * this.pace;
   }
 
   get playerSpeed() {
-    return this.diff.playerSpeed;
+    return this.diff.playerSpeed * this.pace;
   }
 
   get safety() {
@@ -366,7 +382,9 @@ export class Game {
   }
 
   get assisted() {
-    return this.assist !== 100;
+    // A non-standard pace is a different game, so it is unranked for the same
+    // reason the speed assist is: the board only compares like with like.
+    return this.assist !== 100 || this.pace !== 1;
   }
 
   setName(name) {

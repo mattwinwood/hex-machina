@@ -424,6 +424,41 @@ called EVERYTHING IT HAS *easier* than the one before it.
 At `safetyDecay: 0.50` the window travels the full 1.95 → 1.45 and the curve
 appears: **1.34 / 2.10 / 2.40 / 2.50 / 3.06**, monotonic, fairness still 210/210.
 
+### Pace is the only lever a good player feels
+
+The fairness canary guarantees a **zero-latency** greedy bot clears every seed.
+A skilled human is close to that bot plus a couple of hundred milliseconds, so
+whatever the canary certifies as survivable, a good player can survive too. That
+is why three rounds of tuning — rests, rescue trigger, safety decay — moved the
+bot numbers without moving how the game felt.
+
+Every lever except one changes *geometry*, and `minClearFor` normalises geometry
+back into constant reaction time. `pace` scales wall speed and cursor speed
+**together**: the geometry is identical, the fairness guarantee is untouched
+(210/210 at every pace), and the only thing that changes is how many
+milliseconds a human gets to read the field. It is invisible to the canary by
+construction, which is exactly why it is the lever that works.
+
+Measured against a bot playing perfectly on 100ms-stale information — which
+lands near Matt's real telemetry (1.05 vs 1.63 deaths/min, 14% vs 17% reaching
+60s) — pace is steep:
+
+| pace | deaths/min | avg run | reached 60s |
+| --- | --- | --- | --- |
+| 1.00 | 1.05 | 49.2s | 14% |
+| 1.20 | 3.87 | 15.5s | 0% |
+| 1.40 | 6.44 | 9.3s | 0% |
+
+`?pace=1.2` on the URL, or `dailyhex.setPace(1.2)` in the console. Sticky for the
+session, labelled in the HUD, and always unranked — the board only compares like
+with like.
+
+**Do not model the player.** Two attempts failed in opposite directions: a bot
+with random wrong-way commits measures how punishing a blunder is, and a good
+player does not blunder; a bot with pure reactive delay oscillates and dies in
+nine seconds, while Matt clears seventy-nine. Humans anticipate. Use the bot for
+fairness, which it measures exactly, and use a real player for feel.
+
 ### Idle time is bounded by the fairness invariant
 
 More than half of a run has nothing on the approach — 72% of the first fifteen

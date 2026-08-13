@@ -536,7 +536,9 @@ async function offerInstall() {
 
 // Console handle for tuning. refreshBoard/readRank are here so the leaderboard
 // nudge can be exercised without waiting on a real poll.
-window.dailyhex = { game, input, sound, autopilot, tutorial, refreshBoard, readRank, telemetryOn, setTelemetry };
+window.dailyhex = { game, input, sound, autopilot, tutorial, refreshBoard, readRank, telemetryOn, setTelemetry,
+  // Dial it live from the console without a reload: dailyhex.setPace(1.25)
+  setPace: (v) => { game.pace = v; try { sessionStorage.setItem('dailyhex.pace', String(game.pace)); } catch {} return game.pace; } };
 
 let last = performance.now();
 let fpsAvg = 0;
@@ -603,6 +605,18 @@ if (document.fonts?.load) {
     .then(invalidateFontCache)
     .catch(() => { /* no webfont: the fallback stack still renders */ });
 }
+
+// Live difficulty dial, for finding the right pace by feel instead of by
+// argument: dailyhexagon.com/?pace=1.2 plays 20% faster. Both speeds scale, so
+// the geometry and the fairness guarantee are untouched — only the milliseconds
+// a human gets to react. Sticky for the session so a retry keeps the setting,
+// and cleared with ?pace=1.
+try {
+  const q = new URLSearchParams(location.search).get('pace');
+  if (q !== null) sessionStorage.setItem('dailyhex.pace', q);
+  const pace = Number(sessionStorage.getItem('dailyhex.pace') || 1);
+  if (pace && pace !== 1) game.pace = pace;
+} catch { /* no storage: ships at the default pace */ }
 
 refreshBoard(true);
 requestAnimationFrame(frame);
