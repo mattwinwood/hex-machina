@@ -563,6 +563,28 @@ player does not blunder; a bot with pure reactive delay oscillates and dies in
 nine seconds, while Matt clears seventy-nine. Humans anticipate. Use the bot for
 fairness, which it measures exactly, and use a real player for feel.
 
+### A rest was a distance, but it is felt as time
+
+`REST_MIN`/`REST_MAX` push the spawn frontier out by a multiple of the spawn
+radius. That is a *distance*, and how long it lasts depends on how fast walls are
+moving — so the same multiple was **3.9 seconds** at the start of a run and 2.9s
+in overtime. The longest dead stretches landed exactly where they were least
+wanted, at the opening, and no amount of tuning the multiple could fix it because
+the multiple was not the thing being felt.
+
+`REST_MAX_SECONDS` clamps the roll to a wall-clock ceiling. Clamping rather than
+rolling in seconds keeps the short rests exactly as they were and only cuts the
+tail that reads as the game having stopped. At 1.5s:
+
+| | before | after |
+| --- | --- | --- |
+| longest quiet spell | 4.7s | **2.6s** |
+| field empty | 34% | **18%** |
+| walls on screen, median | 4 | **5** |
+
+Both profiles stay 210/210, so this is not profiled — it corrects a units
+mismatch rather than expressing a taste.
+
 ### Rest frequency is per profile, because its safe floor is
 
 Rests are load-bearing rather than decoration: the spawner uses them to buy the

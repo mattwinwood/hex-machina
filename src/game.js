@@ -11,7 +11,7 @@ import {
   PROGRESS_SECONDS, SPEED_GAIN, SAFETY_DECAY, PHASES,
   GRAZE_WINDOW, GRAZE_DECAY, GRAZE_COST_MIN, GRAZE_COST_MAX, PULSE_AMPLITUDE, PULSE_ZOOM,
   HUE_SHIMMER, HUE_SHIMMER_PERIOD,
-  REST_CHANCE, REST_MIN, REST_MAX,
+  REST_CHANCE, REST_MIN, REST_MAX, REST_MAX_SECONDS,
   CHECKPOINTS, ASSIST_STEP, ASSIST_MIN, BADGES,
   RANKS, DIFFICULTIES, TRACKS, FLAVOURS, mod, angDiff, clamp,
 } from './config.js';
@@ -1277,7 +1277,13 @@ export class Game {
     // Breathe. Without this the next pattern follows at the minimum fair
     // spacing every single time, and the arena never actually empties.
     if (rng.chance(this.tune.restChance ?? this.diff.restChance ?? REST_CHANCE)) {
-      cursor += this.spawnDist * rng.range(REST_MIN, REST_MAX);
+      // Roll the distance, then clamp it to a wall-clock ceiling. Rolling in
+      // seconds directly would change the shape of the distribution; clamping
+      // keeps the short rests exactly as they were and only cuts the tail that
+      // reads as the game having stopped.
+      const units = rng.range(REST_MIN, REST_MAX);
+      const ceiling = (REST_MAX_SECONDS * this.speed) / this.spawnDist;
+      cursor += this.spawnDist * Math.min(units, ceiling);
     }
     this.frontier = cursor;
   }

@@ -160,6 +160,13 @@ export const FLAVOURS = [
 export const REST_CHANCE = 0.45; // fallback only; profiles override it
 export const REST_MIN = 0.75;
 export const REST_MAX = 2.3;
+// A rest is spawned as a *distance* — a multiple of the spawn radius — but the
+// player experiences it as *time*, and the two diverge badly. Early in a run,
+// when walls are slowest, REST_MAX works out at 3.9 seconds of empty screen;
+// the same multiple in overtime is 2.9s. So the long waits land exactly where
+// they are least wanted, at the start, and no amount of tuning the multiple
+// fixes that because the multiple is not the thing being felt.
+export const REST_MAX_SECONDS = 1.5;
 
 // --- Pulse mode ------------------------------------------------------------
 // The arena breathes with the track. Obstacles are untouched; what changes is
